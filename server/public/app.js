@@ -13,6 +13,12 @@
   const filterCategoryEl = document.getElementById("filterCategory");
   const themeToggleBtn = document.getElementById("themeToggle");
   const dateInput = document.getElementById("date");
+  const pulseTotalEl = document.getElementById("pulseTotal");
+  const pulseChangeEl = document.getElementById("pulseChange");
+  const pulseAvgEl = document.getElementById("pulseAvg");
+  const pulseTopCatEl = document.getElementById("pulseTopCat");
+  const pulseSparkEl = document.getElementById("pulseSpark");
+  const pulseRangeLabelEl = document.getElementById("pulseRangeLabel");
 
   let transactions = [];
 
@@ -27,6 +33,7 @@
   renderFilters();
   renderTransactions();
   renderTotals();
+  renderPulse();
   if (!offlineMode) {
     refreshFromServer();
   }
@@ -108,6 +115,7 @@
       renderFilters();
       renderTransactions();
       renderTotals();
+      renderPulse();
     } catch (err) {
       console.warn("Using cached data; failed to fetch from server", err);
     }
@@ -125,6 +133,7 @@
     renderFilters();
     renderTransactions();
     renderTotals();
+    renderPulse();
     form.reset();
     document.getElementById("type").value = tx.type;
     dateInput.value = today;
@@ -167,6 +176,103 @@
     incomeTotalEl.textContent = formatCurrency(income);
     expenseTotalEl.textContent = formatCurrency(expense);
     balanceTotalEl.textContent = formatCurrency(balance);
+  }
+
+  function renderPulse() {
+    if (!pulseTotalEl) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const toDate = (str) => {
+      const d = new Date(str + "T00:00:00");
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const expenses = transactions.filter((t) => t.type === "expense").map((t) => ({ ...t, _d: toDate(t.date) }));
+
+    const rangeTotals = (daysBack, length) => {
+      const end = new Date(today);
+      end.setDate(end.getDate() - daysBack);
+      const start = new Date(end);
+      start.setDate(start.getDate() - (length - 1));
+      const total = expenses
+        .filter((t) => t._d >= start && t._d <= end)
+        .reduce((s, t) => s + t.amount, 0);
+      return total;
+    };
+
+    const last30Total = rangeTotals(0, 30);
+    const prev30Total = rangeTotals(30, 30);
+    const changeAbs = last30Total - prev30Total;
+    const changePct = prev30Total === 0 ? (last30Total > 0 ? 100 : 0) : (changeAbs / prev30Total) * 100;
+
+    const avgDaily = last30Total / 30 || 0;
+
+    const last30Start = new Date();
+    last30Start.setHours(0, 0, 0, 0);
+    last30Start.setDate(last30Start.getDate() - 29);
+
+    const topCategoryMap = expenses
+      .filter((t) => t._d >= last30Start)
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {});
+    const topCat = Object.entries(topCategoryMap).sort((a, b) => b[1] - a[1])[0];
+
+    pulseTotalEl.textContent = formatCurrency(last30Total);
+    const changeText = `${changeAbs >= 0 ? "+" : "−"}${Math.abs(changePct).toFixed(1)}%`;
+    pulseChangeEl.textContent = `${changeText} vs prev 30d`;
+    pulseChangeEl.style.color = changeAbs >= 0 ? "var(--success)" : "var(--danger)";
+    pulseAvgEl.textContent = formatCurrency(avgDaily);
+    pulseTopCatEl.textContent = topCat ? `Top category: ${topCat[0]} (${formatCurrency(topCat[1])})` : "Top category: —";
+
+    // sparkline for last 14 days
+    const days = 14;
+    const dailyTotals = Array.from({ length: days }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (days - 1 - i));
+      const total = expenses
+        .filter((t) => t._d.getTime() === d.getTime())
+        .reduce((s, t) => s + t.amount, 0);
+      return total;
+    });
+
+    pulseRangeLabelEl.textContent = `Last ${days} days`;
+    drawSparkline(dailyTotals);
+  }
+
+  function drawSparkline(values) {
+    if (!pulseSparkEl) return;
+    const width = 240;
+    const height = 80;
+    pulseSparkEl.innerHTML = "";
+    const max = Math.max(...values, 1);
+    const step = values.length > 1 ? width / (values.length - 1) : width;
+
+    const points = values.map((v, i) => {
+      const x = i * step;
+      const y = height - (v / max) * (height - 6) - 3;
+      return [x, y];
+    });
+
+    if (!points.length) return;
+
+    const pathD = points.map((p, i) => (i === 0 ? `M ${p[0]} ${p[1]}` : `L ${p[0]} ${p[1]}`)).join(" ");
+    const areaPath = `${pathD} L ${points[points.length - 1][0]} ${height} L 0 ${height} Z`;
+
+    const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    area.setAttribute("d", areaPath);
+    area.setAttribute("class", "sparkline-area");
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    line.setAttribute("d", pathD);
+    line.setAttribute("class", "sparkline");
+
+    pulseSparkEl.appendChild(area);
+    pulseSparkEl.appendChild(line);
   }
 
   function renderFilters() {
@@ -242,6 +348,7 @@
       renderFilters();
       renderTransactions();
       renderTotals();
+      renderPulse();
       return;
     }
 
@@ -252,6 +359,7 @@
         renderFilters();
         renderTransactions();
         renderTotals();
+        renderPulse();
       })
       .catch((err) => {
         console.error(err);

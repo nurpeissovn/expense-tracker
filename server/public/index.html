@@ -74,11 +74,26 @@
       <article class="card chart-card">
         <div class="card-header">
           <h3>Spending Pulse</h3>
-          <span class="badge ghost">Placeholder</span>
+          <span class="badge ghost">Live</span>
         </div>
-        <div class="chart-placeholder">
-          <div class="pulse"></div>
-          <p>Chart coming soon</p>
+        <div class="pulse-grid">
+          <div class="pulse-stat">
+            <p class="label">Last 30 days</p>
+            <h2 id="pulseTotal">$0</h2>
+            <p class="hint"><span id="pulseChange">0%</span> vs prev 30d</p>
+          </div>
+          <div class="pulse-stat">
+            <p class="label">Avg / day</p>
+            <h3 id="pulseAvg">$0</h3>
+            <p class="hint" id="pulseTopCat">Top category: —</p>
+          </div>
+          <div class="pulse-chart">
+            <svg id="pulseSpark" viewBox="0 0 240 80" preserveAspectRatio="none" aria-label="14-day spending sparkline"></svg>
+            <div class="chart-legend">
+              <span class="dot success"></span>
+              <span id="pulseRangeLabel">Last 14 days</span>
+            </div>
+          </div>
         </div>
       </article>
     </section>

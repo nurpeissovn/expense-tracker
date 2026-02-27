@@ -243,47 +243,82 @@ textarea:focus {
 }
 
 .chart-card {
-  min-height: 320px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
 }
 
-.chart-placeholder {
-  position: relative;
-  flex: 1;
-  border-radius: 16px;
-  border: 1px dashed var(--border);
-  background: radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.12), transparent 45%),
-    radial-gradient(circle at 80% 20%, rgba(14, 160, 93, 0.12), transparent 40%),
-    radial-gradient(circle at 50% 70%, rgba(226, 85, 93, 0.12), transparent 40%),
-    var(--surface);
+.pulse-grid {
   display: grid;
-  place-items: center;
-  overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
 
-.chart-placeholder p {
-  margin: 0;
+.pulse-stat {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 160, 93, 0.06));
+}
+
+[data-theme="dark"] .pulse-stat {
+  background: linear-gradient(135deg, rgba(124, 155, 255, 0.12), rgba(52, 211, 153, 0.08));
+}
+
+.pulse-stat h3 {
+  margin: 6px 0 2px;
+  font-size: 22px;
+}
+
+.pulse-chart {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  background: radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 20%, rgba(14, 160, 93, 0.08), transparent 40%),
+    var(--surface);
+}
+
+.pulse-chart svg {
+  width: 100%;
+  height: 120px;
+}
+
+.sparkline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.sparkline-area {
+  fill: rgba(37, 99, 235, 0.12);
+  stroke: none;
+}
+
+[data-theme="dark"] .sparkline-area {
+  fill: rgba(124, 155, 255, 0.16);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
-  font-weight: 600;
+  font-size: 12px;
+  margin-top: 6px;
 }
 
-.pulse {
-  position: absolute;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.3), transparent 60%);
-  filter: blur(12px);
-  animation: float 6s ease-in-out infinite alternate;
+.chart-legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
 }
 
-@keyframes float {
-  from {
-    transform: translateY(-10px);
-  }
-  to {
-    transform: translateY(10px);
-  }
+.chart-legend .dot.success {
+  background: var(--success);
 }
 
 .transactions-card {
