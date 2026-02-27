@@ -4,144 +4,196 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Expense Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="appError" class="app-error" hidden></div>
-  <div class="app">
-    <header class="top-bar">
+  <div id="app">
+    <aside class="sidebar">
       <div class="brand">
-        <div class="dot"></div>
+        <div class="logo-dot"></div>
         <div>
-          <p class="eyebrow">Personal Finance</p>
+          <p class="eyebrow">Fintrack</p>
           <h1>Expense Tracker</h1>
         </div>
       </div>
-      <button id="themeToggle" class="ghost-btn" aria-label="Toggle theme">🌙 Dark</button>
-    </header>
-
-    <section class="grid kpi-grid">
-      <article class="card kpi income">
-        <p class="label">Total Income</p>
-        <h2 id="incomeTotal">₸0</h2>
-        <p class="hint">All deposits to date</p>
-      </article>
-      <article class="card kpi expense">
-        <p class="label">Total Expense</p>
-        <h2 id="expenseTotal">₸0</h2>
-        <p class="hint">All spending to date</p>
-      </article>
-      <article class="card kpi balance">
-        <p class="label">Current Balance</p>
-        <h2 id="balanceTotal">₸0</h2>
-        <p class="hint">Income minus expenses</p>
-      </article>
-    </section>
-
-    <section class="grid split">
-      <article class="card form-card">
-        <div class="card-header">
-          <h3>Add Transaction</h3>
-          <span class="badge">Quick entry</span>
+      <nav class="nav">
+        <button class="nav-btn active">Dashboard</button>
+        <button class="nav-btn">Transactions</button>
+        <button class="nav-btn">Budget</button>
+      </nav>
+      <div class="budget-box">
+        <div class="budget-header">
+          <span>Monthly Budget</span>
+          <span class="muted" id="budgetStatus">Set</span>
         </div>
-        <form id="transactionForm" class="form">
+        <div class="budget-input">
+          <span>₸</span>
+          <input id="budgetInput" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="budget-progress">
+          <div id="budgetBar"></div>
+        </div>
+        <p class="muted" id="budgetMessage">No budget set.</p>
+      </div>
+    </aside>
+
+    <main>
+      <header class="top-bar">
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search by note or category" />
+          <span class="icon">🔎</span>
+        </div>
+        <div class="actions">
+          <label class="switch">
+            <input id="themeToggle" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+          <div class="avatar">🙂</div>
+        </div>
+      </header>
+
+      <section class="kpi-grid">
+        <article class="card kpi income">
+          <div class="kpi-icon">💰</div>
+          <div>
+            <p class="label">Total Income</p>
+            <h2 id="incomeTotal">₸0</h2>
+          </div>
+        </article>
+        <article class="card kpi expense">
+          <div class="kpi-icon">💸</div>
+          <div>
+            <p class="label">Total Expense</p>
+            <h2 id="expenseTotal">₸0</h2>
+          </div>
+        </article>
+        <article class="card kpi balance">
+          <div class="kpi-icon">📊</div>
+          <div>
+            <p class="label">Balance</p>
+            <h2 id="balanceTotal">₸0</h2>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid charts">
+        <article class="card chart-card">
+          <div class="card-header">
+            <h3>Expenses by Category</h3>
+            <div class="legend" id="donutLegend"></div>
+          </div>
+          <div class="canvas-wrap skeleton" data-chart="donut">
+            <canvas id="donutChart" width="320" height="240"></canvas>
+          </div>
+        </article>
+        <article class="card chart-card">
+          <div class="card-header">
+            <h3>Spending Trend (30d)</h3>
+          </div>
+          <div class="canvas-wrap skeleton" data-chart="line">
+            <canvas id="lineChart" width="320" height="240"></canvas>
+          </div>
+        </article>
+        <article class="card chart-card">
+          <div class="card-header">
+            <h3>Daily Spending (This Month)</h3>
+          </div>
+          <div class="canvas-wrap skeleton" data-chart="bar">
+            <canvas id="barChart" width="320" height="240"></canvas>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid two-col">
+        <article class="card form-card">
+          <div class="card-header">
+            <h3>Add Transaction</h3>
+            <div class="badge">Quick add</div>
+          </div>
+          <form id="transactionForm">
+            <div class="type-toggle">
+              <button type="button" data-type="income" class="type-btn active">Income</button>
+              <button type="button" data-type="expense" class="type-btn">Expense</button>
+              <input type="hidden" id="type" value="income" />
+            </div>
+            <div class="field">
+              <label>Amount</label>
+              <input id="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
+              <small class="muted" id="amountHint"></small>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <div class="select-wrap">
+                <span class="dot" id="categoryDot"></span>
+                <input id="category" type="text" placeholder="e.g. Food, Bus" required />
+              </div>
+            </div>
+            <div class="field">
+              <label>Date</label>
+              <input id="date" type="date" required />
+            </div>
+            <div class="field">
+              <label>Note</label>
+              <textarea id="note" rows="2" placeholder="Optional"></textarea>
+            </div>
+            <button type="submit" class="primary-btn ripple">Add Transaction</button>
+          </form>
+        </article>
+
+        <article class="card insights-card">
+          <div class="card-header">
+            <h3>Insights</h3>
+            <div class="badge ghost">Auto</div>
+          </div>
+          <ul id="insightsList" class="insights"></ul>
+        </article>
+      </section>
+
+      <section class="card transactions-card">
+        <div class="filter-bar">
           <div class="field">
-            <label for="type">Type</label>
-            <select id="type" required>
+            <label>Type</label>
+            <select id="filterType">
+              <option value="all">All</option>
               <option value="income">Income</option>
               <option value="expense">Expense</option>
             </select>
           </div>
           <div class="field">
-            <label for="amount">Amount</label>
-            <input id="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
+            <label>Category</label>
+            <select id="filterCategory">
+              <option value="all">All categories</option>
+            </select>
           </div>
           <div class="field">
-            <label for="category">Category</label>
-            <input id="category" type="text" placeholder="e.g. Groceries, Salary" required />
+            <label>Start</label>
+            <input id="filterStart" type="date" />
           </div>
           <div class="field">
-            <label for="date">Date</label>
-            <input id="date" type="date" required />
-          </div>
-          <div class="field">
-            <label for="note">Note (optional)</label>
-            <textarea id="note" rows="2" placeholder="Add context"></textarea>
-          </div>
-          <button type="submit" class="primary-btn">Add Transaction</button>
-        </form>
-      </article>
-
-      <article class="card chart-card">
-        <div class="card-header">
-          <h3>Spending Pulse</h3>
-          <span class="badge ghost">Live</span>
-        </div>
-          <div class="pulse-grid">
-            <div class="pulse-stat">
-              <p class="label">Last 30 days</p>
-              <h2 id="pulseTotal">₸0</h2>
-              <p class="hint"><span id="pulseChange">0%</span> vs prev 30d</p>
-            </div>
-            <div class="pulse-stat">
-              <p class="label">Avg / day</p>
-              <h3 id="pulseAvg">₸0</h3>
-              <p class="hint" id="pulseTopCat">Top category: —</p>
-            </div>
-          <div class="pulse-chart">
-            <svg id="pulseSpark" viewBox="0 0 240 80" preserveAspectRatio="none" aria-label="14-day spending sparkline"></svg>
-            <div class="chart-legend">
-              <span class="dot success"></span>
-              <span id="pulseRangeLabel">Last 14 days</span>
-            </div>
+            <label>End</label>
+            <input id="filterEnd" type="date" />
           </div>
         </div>
-      </article>
-
-      <article class="card rollup-card">
-        <div class="card-header">
-          <h3>Category Rollup</h3>
-          <span class="badge ghost">Sum by category</span>
-        </div>
-        <div class="rollup-body">
-          <label class="label" for="rollupCategory">Category</label>
-          <select id="rollupCategory">
-            <option value="all">All categories</option>
-          </select>
-          <div class="rollup-stats">
-            <div>
-              <p class="label">Total</p>
-              <h3 id="rollupTotal">₸0</h3>
-            </div>
-            <div>
-              <p class="label">Transactions</p>
-              <h3 id="rollupCount">0</h3>
-            </div>
+        <div id="transactionsList" class="transactions-list empty-state">
+          <div class="empty">
+            <div class="empty-icon">🗒️</div>
+            <p>No transactions yet. Add one to get started.</p>
+            <button class="ghost-btn" id="quickAdd">Add Transaction</button>
           </div>
         </div>
-      </article>
-    </section>
-
-    <section class="card transactions-card">
-      <div class="card-header">
-        <h3>Transactions</h3>
-        <div class="filters">
-          <select id="filterType">
-            <option value="all">All types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
-          <select id="filterCategory">
-            <option value="all">All categories</option>
-          </select>
-        </div>
-      </div>
-      <div id="transactionsList" class="transactions-list empty-state">
-        <p>No transactions yet. Add one to get started.</p>
-      </div>
-    </section>
+      </section>
+    </main>
   </div>
 
+  <div id="toast"></div>
+  <nav class="mobile-nav">
+    <button class="nav-btn active">Dashboard</button>
+    <button class="nav-btn">Transactions</button>
+    <button class="nav-btn">Budget</button>
+  </nav>
   <script src="app.js"></script>
 </body>
 </html>
