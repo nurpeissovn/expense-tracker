@@ -20,70 +20,94 @@
   const pulseSparkEl = document.getElementById("pulseSpark");
   const pulseRangeLabelEl = document.getElementById("pulseRangeLabel");
 
+  const errorBanner = document.getElementById("appError");
+
+  function showError(message) {
+    console.error(message);
+    if (errorBanner) {
+      errorBanner.textContent = message;
+      errorBanner.hidden = false;
+    } else {
+      alert(message);
+    }
+  }
+
   let transactions = [];
 
   const today = new Date().toISOString().split("T")[0];
-  dateInput.value = today;
+  if (dateInput) dateInput.value = today;
 
   const savedTheme = localStorage.getItem(themeKey) || "light";
   setTheme(savedTheme);
 
-  // seed from cache while network loads
-  loadCache();
-  renderFilters();
-  renderTransactions();
-  renderTotals();
-  renderPulse();
-  if (!offlineMode) {
-    refreshFromServer();
+  try {
+    // seed from cache while network loads
+    loadCache();
+    renderFilters();
+    renderTransactions();
+    renderTotals();
+    renderPulse();
+    if (!offlineMode) {
+      refreshFromServer();
+    }
+  } catch (err) {
+    showError(err.message || "App failed to start.");
+    return;
   }
 
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const type = document.getElementById("type").value;
-    const amount = parseFloat(document.getElementById("amount").value);
-    const category = document.getElementById("category").value.trim();
-    const date = document.getElementById("date").value;
-    const note = document.getElementById("note").value.trim();
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const type = document.getElementById("type").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      const category = document.getElementById("category").value.trim();
+      const date = document.getElementById("date").value;
+      const note = document.getElementById("note").value.trim();
 
-    if (!amount || amount <= 0 || !category || !date) {
-      alert("Please enter a valid amount, category, and date.");
-      return;
-    }
+      if (!amount || amount <= 0 || !category || !date) {
+        alert("Please enter a valid amount, category, and date.");
+        return;
+      }
 
-    const newTx = {
-      type,
-      amount: Math.round(amount * 100) / 100,
-      category,
-      date,
-      note,
-    };
+      const newTx = {
+        type,
+        amount: Math.round(amount * 100) / 100,
+        category,
+        date,
+        note,
+      };
 
-    if (offlineMode) {
-      addLocal(newTx);
-      return;
-    }
+      if (offlineMode) {
+        addLocal(newTx);
+        return;
+      }
 
-    createTransaction(newTx)
-      .then((saved) => addLocal(saved))
-      .catch((err) => {
-        console.error(err);
-        alert("Could not save transaction. Check your connection and try again.");
-      });
-  });
+      createTransaction(newTx)
+        .then((saved) => addLocal(saved))
+        .catch((err) => {
+          showError(err.message || "Could not save transaction.");
+        });
+    });
+  }
 
-  filterTypeEl.addEventListener("change", () => {
-    renderTransactions();
-  });
+  if (filterTypeEl) {
+    filterTypeEl.addEventListener("change", () => {
+      renderTransactions();
+    });
+  }
 
-  filterCategoryEl.addEventListener("change", () => {
-    renderTransactions();
-  });
+  if (filterCategoryEl) {
+    filterCategoryEl.addEventListener("change", () => {
+      renderTransactions();
+    });
+  }
 
-  themeToggleBtn.addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-    setTheme(next);
-  });
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+      setTheme(next);
+    });
+  }
 
   function setTheme(mode) {
     document.documentElement.setAttribute("data-theme", mode);
@@ -118,6 +142,7 @@
       renderPulse();
     } catch (err) {
       console.warn("Using cached data; failed to fetch from server", err);
+      showError("Cannot reach server. Showing cached data.");
     }
   }
 
@@ -126,7 +151,7 @@
       ? tx
       : {
           ...tx,
-          id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+          id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         };
     transactions.unshift(withId);
     saveCache();
