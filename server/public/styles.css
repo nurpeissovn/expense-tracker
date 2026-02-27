@@ -19,19 +19,19 @@
 }
 
 [data-theme="dark"] {
-  --bg: #0b1220;
-  --surface: rgba(20, 27, 44, 0.92);
-  --text: #e9edf5;
-  --muted: #a7b7d5;
-  --accent: #9cc0ff;
-  --accent-2: #c7a6ff;
-  --success: #5ee8b3;
-  --danger: #fca5a5;
-  --border: #233047;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  --gradient: radial-gradient(120% 120% at 20% 20%, rgba(156, 192, 255, 0.12), transparent 40%),
-    radial-gradient(90% 90% at 80% 0%, rgba(199, 166, 255, 0.14), transparent 35%),
-    linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+  --bg: #0a0f1a;
+  --surface: #121a2a;
+  --text: #f3f5fb;
+  --muted: #b8c4db;
+  --accent: #8bb4ff;
+  --accent-2: #c9a9ff;
+  --success: #52e3ae;
+  --danger: #ff9a9a;
+  --border: #253246;
+  --shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+  --gradient: radial-gradient(120% 120% at 20% 20%, rgba(139, 180, 255, 0.12), transparent 40%),
+    radial-gradient(90% 90% at 80% 0%, rgba(201, 169, 255, 0.14), transparent 35%),
+    linear-gradient(180deg, #0c1322 0%, #0a0f1a 100%);
 }
 
 *,
@@ -111,7 +111,7 @@ body {
   transition: all 0.2s ease;
 }
 [data-theme="dark"] .nav-btn {
-  background: rgba(255, 255, 255, 0.06);
+  background: #192132;
 }
 .nav-btn:hover,
 .nav-btn.active {
@@ -405,6 +405,12 @@ h2 {
   color: var(--text);
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
+[data-theme="dark"] .field input,
+[data-theme="dark"] .field select,
+[data-theme="dark"] .field textarea {
+  background: #1c2638;
+  border-color: #30405a;
+}
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
@@ -419,6 +425,11 @@ h2 {
   border: 1px solid var(--border);
   padding: 8px 10px;
   border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+}
+[data-theme="dark"] .select-wrap {
+  background: #1c2638;
+  border-color: #30405a;
 }
 .select-wrap input {
   border: none;
@@ -507,8 +518,12 @@ h2 {
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.8);
   transition: border 0.2s ease, transform 0.2s ease;
+}
+[data-theme="dark"] .transaction {
+  background: #131c2c;
+  border-color: #2e3c54;
 }
 .transaction:hover {
   border-color: var(--accent);
