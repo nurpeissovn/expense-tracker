@@ -77,7 +77,8 @@ app.post("/api/transactions", async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: "Failed to create transaction" });
+    console.error("create transaction failed:", err);
+    res.status(500).json({ error: err.message || "Failed to create transaction" });
   }
 });
 
@@ -89,7 +90,8 @@ app.delete("/api/transactions/:id", async (req, res) => {
     if (!result.rowCount) return res.status(404).json({ error: "Not found" });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "Failed to delete transaction" });
+    console.error("delete transaction failed:", err);
+    res.status(500).json({ error: err.message || "Failed to delete transaction" });
   }
 });
 
