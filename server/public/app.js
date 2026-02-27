@@ -157,11 +157,15 @@
     if (!res.ok) throw new Error("Delete failed");
   }
 
+  const currencyFormatter = new Intl.NumberFormat("kk-KZ", {
+    style: "currency",
+    currency: "KZT",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   function formatCurrency(val) {
-    return `$${Number(val).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return currencyFormatter.format(Number(val) || 0);
   }
 
   function renderTotals() {
@@ -316,6 +320,7 @@
     transactionsListEl.innerHTML = filtered
       .map((t) => {
         const sign = t.type === "expense" ? "-" : "+";
+        const formattedAmount = formatCurrency(Math.abs(t.amount));
         const amountColor = t.type === "expense" ? "var(--danger)" : "var(--success)";
         return `
           <div class="transaction" data-id="${t.id}">
@@ -325,7 +330,7 @@
                 <span>${t.date}</span>
                 ${t.note ? `<span>${t.note}</span>` : ""}
               </div>
-              <div class="amount" style="color:${amountColor}">${sign}${formatCurrency(t.amount).slice(1)}</div>
+              <div class="amount" style="color:${amountColor}">${sign}${formattedAmount}</div>
             </div>
             <button class="delete-btn" aria-label="Delete" data-id="${t.id}">Delete</button>
           </div>
