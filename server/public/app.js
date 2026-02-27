@@ -43,15 +43,15 @@
   const tooltip = createTooltip();
 
   const colors = [
-    "#2563eb",
-    "#10b981",
-    "#f97316",
-    "#a855f7",
-    "#ec4899",
-    "#22c55e",
-    "#8b5cf6",
-    "#06b6d4",
+    "#4f8bff",
+    "#2dd4bf",
     "#f59e0b",
+    "#c084fc",
+    "#fb7185",
+    "#34d399",
+    "#a78bfa",
+    "#22c55e",
+    "#38bdf8",
   ];
 
   let transactions = loadData().map(normalizeTx);
@@ -495,8 +495,13 @@
     const navBtns = document.querySelectorAll(".nav-btn");
     navBtns.forEach((btn) =>
       btn.addEventListener("click", () => {
+        const targetId = btn.dataset.target;
         navBtns.forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
+        if (targetId) {
+          const el = document.getElementById(targetId);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       })
     );
   }

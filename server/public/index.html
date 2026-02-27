@@ -11,7 +11,7 @@
 </head>
 <body>
   <div id="app">
-    <aside class="sidebar">
+    <aside class="sidebar" id="section-budget">
       <div class="brand">
         <div class="logo-dot"></div>
         <div>
@@ -20,9 +20,9 @@
         </div>
       </div>
       <nav class="nav">
-        <button class="nav-btn active">Dashboard</button>
-        <button class="nav-btn">Transactions</button>
-        <button class="nav-btn">Budget</button>
+        <button class="nav-btn active" data-target="section-dashboard">Dashboard</button>
+        <button class="nav-btn" data-target="section-transactions">Transactions</button>
+        <button class="nav-btn" data-target="section-budget">Budget</button>
       </nav>
       <div class="budget-box">
         <div class="budget-header">
@@ -40,7 +40,7 @@
       </div>
     </aside>
 
-    <main>
+    <main id="section-dashboard">
       <header class="top-bar">
         <div class="search-wrap">
           <input id="searchInput" type="search" placeholder="Search by note or category" />
@@ -152,7 +152,7 @@
         </article>
       </section>
 
-      <section class="card transactions-card">
+      <section class="card transactions-card" id="section-transactions">
         <div class="filter-bar">
           <div class="field">
             <label>Type</label>
@@ -190,9 +190,9 @@
 
   <div id="toast"></div>
   <nav class="mobile-nav">
-    <button class="nav-btn active">Dashboard</button>
-    <button class="nav-btn">Transactions</button>
-    <button class="nav-btn">Budget</button>
+    <button class="nav-btn active" data-target="section-dashboard">Dashboard</button>
+    <button class="nav-btn" data-target="section-transactions">Transactions</button>
+    <button class="nav-btn" data-target="section-budget">Budget</button>
   </nav>
   <script src="app.js"></script>
 </body>

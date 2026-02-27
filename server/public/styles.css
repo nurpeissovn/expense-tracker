@@ -20,18 +20,18 @@
 
 [data-theme="dark"] {
   --bg: #0b1220;
-  --surface: rgba(17, 24, 39, 0.9);
-  --text: #e5e7eb;
-  --muted: #9ca3af;
-  --accent: #7c9bff;
-  --accent-2: #c084fc;
-  --success: #34d399;
-  --danger: #f87171;
-  --border: #1f2937;
-  --shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  --gradient: radial-gradient(120% 120% at 20% 20%, rgba(124, 155, 255, 0.12), transparent 40%),
-    radial-gradient(90% 90% at 80% 0%, rgba(192, 132, 252, 0.14), transparent 35%),
-    linear-gradient(180deg, #0d1526 0%, #0b1220 100%);
+  --surface: rgba(20, 27, 44, 0.92);
+  --text: #e9edf5;
+  --muted: #a7b7d5;
+  --accent: #9cc0ff;
+  --accent-2: #c7a6ff;
+  --success: #5ee8b3;
+  --danger: #fca5a5;
+  --border: #233047;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --gradient: radial-gradient(120% 120% at 20% 20%, rgba(156, 192, 255, 0.12), transparent 40%),
+    radial-gradient(90% 90% at 80% 0%, rgba(199, 166, 255, 0.14), transparent 35%),
+    linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
 }
 
 *,
@@ -274,6 +274,9 @@ main {
   transform: translateY(-2px);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16);
 }
+[data-theme="dark"] .card:hover {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -320,6 +323,12 @@ h2 {
 .chart-card canvas {
   width: 100%;
   height: 240px;
+}
+.chart-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), var(--surface);
+}
+[data-theme="dark"] .chart-card {
+  background: linear-gradient(135deg, rgba(76, 110, 170, 0.08), rgba(24, 33, 55, 0.3)), var(--surface);
 }
 .skeleton::before {
   content: "";
