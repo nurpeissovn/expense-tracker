@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Pool } from "pg";
 import path from "path";
+import fs from "fs/promises";
 import { fileURLToPath } from "url";
 
 dotenv.config();
@@ -19,6 +20,13 @@ const pool = new Pool({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, "public");
+const schemaPath = path.join(__dirname, "schema.sql");
+
+async function ensureDatabase() {
+  const schema = await fs.readFile(schemaPath, "utf8");
+  await pool.query(schema);
+  console.log("Database schema ensured");
+}
 
 app.use(
   cors({
@@ -89,6 +97,14 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
 
-app.listen(port, () => {
-  console.log(`Expense Tracker API running on :${port}`);
-});
+(async () => {
+  try {
+    await ensureDatabase();
+    app.listen(port, () => {
+      console.log(`Expense Tracker API running on :${port}`);
+    });
+  } catch (err) {
+    console.error("Failed to initialize database:", err);
+    process.exit(1);
+  }
+})();
