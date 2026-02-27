@@ -3,6 +3,7 @@
   const STORAGE_KEY = "et-transactions-v3";
   const THEME_KEY = "et-theme";
   const BUDGET_KEY = "et-budget";
+  const API_BASE = `${window.location.origin}/api`;
   const todayISO = new Date().toISOString().split("T")[0];
 
   const els = {
@@ -53,7 +54,7 @@
     "#f59e0b",
   ];
 
-  let transactions = loadData();
+  let transactions = loadData().map(normalizeTx);
   let budget = loadBudget();
   let donutState = [];
   let linePoints = [];
@@ -68,7 +69,9 @@
   wireBudget();
   setupTooltip();
   window.addEventListener("resize", () => renderCharts());
-  setTimeout(() => renderAll(true), 300); // skeleton pause
+  // initial load: try server first, fallback to cache
+  renderAll(true);
+  refreshFromServer().finally(() => renderAll());
 
   // ------- HELPERS -------
   function byId(id) {
@@ -90,6 +93,18 @@
     }
   }
 
+  async function refreshFromServer() {
+    try {
+      const res = await fetch(`${API_BASE}/transactions`);
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      const data = await res.json();
+      transactions = data.map(normalizeTx);
+      saveData();
+    } catch (err) {
+      console.warn("Using cached data; server unavailable", err);
+    }
+  }
+
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
   }
@@ -103,6 +118,14 @@
     budget = Number(val) || 0;
     localStorage.setItem(BUDGET_KEY, budget);
     renderBudget();
+  }
+
+  function normalizeTx(tx) {
+    return {
+      ...tx,
+      amount: Number(tx.amount) || 0,
+      date: tx.date?.slice(0, 10) || todayISO,
+    };
   }
 
   function kzt(value) {
@@ -197,10 +220,7 @@
     els.transactionsList.querySelectorAll(".delete-btn").forEach((btn) =>
       btn.addEventListener("click", (e) => {
         const id = e.currentTarget.getAttribute("data-id");
-        transactions = transactions.filter((t) => t.id !== id);
-        saveData();
-        toast("Deleted");
-        renderAll();
+        deleteTransaction(id);
       })
     );
   }
@@ -379,6 +399,19 @@
     els.rollupCount.textContent = filtered.length;
   }
 
+  async function deleteTransaction(id) {
+    try {
+      await fetch(`${API_BASE}/transactions/${id}`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Server delete failed, removing locally", err);
+    } finally {
+      transactions = transactions.filter((t) => t.id !== id);
+      saveData();
+      toast("Deleted");
+      renderAll();
+    }
+  }
+
   function toggleSkeleton(state) {
     document.querySelectorAll(".canvas-wrap").forEach((el) => {
       el.classList.toggle("loading", state);
@@ -415,7 +448,7 @@
       els.categoryDot.style.background = colorForCategory(els.category.value);
     });
 
-    els.form.addEventListener("submit", (e) => {
+    els.form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const amount = Number(els.amount.value);
       if (!amount || amount <= 0) return alert("Amount must be greater than zero.");
@@ -427,7 +460,19 @@
         date: els.date.value || todayISO,
         note: els.note.value.trim(),
       };
-      transactions.unshift(tx);
+      try {
+        const res = await fetch(`${API_BASE}/transactions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(tx),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const saved = normalizeTx(await res.json());
+        transactions.unshift(saved);
+      } catch (err) {
+        console.warn("Falling back to local add", err);
+        transactions.unshift(tx);
+      }
       saveData();
       toast("Transaction added");
       els.form.reset();
