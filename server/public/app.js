@@ -37,6 +37,11 @@
     showError(e.message || "Unexpected error", e.error);
   });
 
+  const normalizeTx = (tx) => ({
+    ...tx,
+    amount: Number(tx.amount),
+  });
+
   // Currency formatter (must be initialized before any renders)
   const currencyFormatter = (() => {
     try {
@@ -163,7 +168,7 @@
       const res = await fetch(`${API_BASE}/transactions`);
       if (!res.ok) throw new Error("Network response was not ok");
       const data = await res.json();
-      transactions = data;
+      transactions = data.map(normalizeTx);
       saveCache();
       renderFilters();
       renderTransactions();
@@ -177,11 +182,11 @@
 
   function addLocal(tx) {
     const withId = tx.id
-      ? tx
-      : {
+      ? normalizeTx(tx)
+      : normalizeTx({
           ...tx,
           id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-        };
+        });
     transactions.unshift(withId);
     saveCache();
     renderFilters();
@@ -221,10 +226,10 @@
   function renderTotals() {
     const income = transactions
       .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const expense = transactions
       .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const balance = income - expense;
 
     incomeTotalEl.textContent = formatCurrency(income);
@@ -243,7 +248,9 @@
       return d;
     };
 
-    const expenses = transactions.filter((t) => t.type === "expense").map((t) => ({ ...t, _d: toDate(t.date) }));
+    const expenses = transactions
+      .filter((t) => t.type === "expense")
+      .map((t) => ({ ...t, amount: Number(t.amount) || 0, _d: toDate(t.date) }));
 
     const rangeTotals = (daysBack, length) => {
       const end = new Date(today);
@@ -370,7 +377,7 @@
     transactionsListEl.innerHTML = filtered
       .map((t) => {
         const sign = t.type === "expense" ? "-" : "+";
-        const formattedAmount = formatCurrency(Math.abs(t.amount));
+        const formattedAmount = formatCurrency(Math.abs(Number(t.amount) || 0));
         const amountColor = t.type === "expense" ? "var(--danger)" : "var(--success)";
         return `
           <div class="transaction" data-id="${t.id}">
