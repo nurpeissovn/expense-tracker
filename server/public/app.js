@@ -19,6 +19,9 @@
   const pulseTopCatEl = document.getElementById("pulseTopCat");
   const pulseSparkEl = document.getElementById("pulseSpark");
   const pulseRangeLabelEl = document.getElementById("pulseRangeLabel");
+  const rollupSelect = document.getElementById("rollupCategory");
+  const rollupTotalEl = document.getElementById("rollupTotal");
+  const rollupCountEl = document.getElementById("rollupCount");
 
   const errorBanner = document.getElementById("appError");
 
@@ -136,6 +139,12 @@
     });
   }
 
+  if (rollupSelect) {
+    rollupSelect.addEventListener("change", () => {
+      renderRollup();
+    });
+  }
+
   if (themeToggleBtn) {
     themeToggleBtn.addEventListener("click", () => {
       const next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
@@ -174,6 +183,7 @@
       renderTransactions();
       renderTotals();
       renderPulse();
+      renderRollup();
     } catch (err) {
       console.warn("Using cached data; failed to fetch from server", err);
       showError("Cannot reach server. Showing cached data.");
@@ -193,6 +203,7 @@
     renderTransactions();
     renderTotals();
     renderPulse();
+    renderRollup();
     if (form) form.reset();
     const typeSelect = document.getElementById("type");
     if (typeSelect) typeSelect.value = tx.type;
@@ -235,6 +246,15 @@
     incomeTotalEl.textContent = formatCurrency(income);
     expenseTotalEl.textContent = formatCurrency(expense);
     balanceTotalEl.textContent = formatCurrency(balance);
+  }
+
+  function renderRollup() {
+    if (!rollupSelect || !rollupTotalEl || !rollupCountEl) return;
+    const cat = rollupSelect.value;
+    const filtered = cat === "all" ? transactions : transactions.filter((t) => t.category === cat);
+    const total = filtered.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    rollupTotalEl.textContent = formatCurrency(total);
+    rollupCountEl.textContent = filtered.length;
   }
 
   function renderPulse() {
@@ -348,6 +368,18 @@
     });
     if (categories.includes(current)) {
       filterCategoryEl.value = current;
+    }
+
+    if (rollupSelect) {
+      const prev = rollupSelect.value || "all";
+      rollupSelect.innerHTML = `<option value="all">All categories</option>`;
+      categories.forEach((cat) => {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        rollupSelect.appendChild(opt);
+      });
+      rollupSelect.value = categories.includes(prev) ? prev : "all";
     }
   }
 
