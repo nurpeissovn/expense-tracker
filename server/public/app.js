@@ -22,7 +22,8 @@
 
   const errorBanner = document.getElementById("appError");
 
-  function showError(message) {
+  function showError(message, err) {
+    if (err) console.error(err);
     console.error(message);
     if (errorBanner) {
       errorBanner.textContent = message;
@@ -31,6 +32,10 @@
       alert(message);
     }
   }
+
+  window.addEventListener("error", (e) => {
+    showError(e.message || "Unexpected error", e.error);
+  });
 
   let transactions = [];
 
@@ -51,7 +56,7 @@
       refreshFromServer();
     }
   } catch (err) {
-    showError(err.message || "App failed to start.");
+    showError(err.message || "App failed to start.", err);
     return;
   }
 
@@ -112,7 +117,7 @@
   function setTheme(mode) {
     document.documentElement.setAttribute("data-theme", mode);
     localStorage.setItem(themeKey, mode);
-    themeToggleBtn.textContent = mode === "light" ? "🌙 Dark" : "☀️ Light";
+    if (themeToggleBtn) themeToggleBtn.textContent = mode === "light" ? "🌙 Dark" : "☀️ Light";
   }
 
   function loadCache() {
@@ -159,9 +164,10 @@
     renderTransactions();
     renderTotals();
     renderPulse();
-    form.reset();
-    document.getElementById("type").value = tx.type;
-    dateInput.value = today;
+    if (form) form.reset();
+    const typeSelect = document.getElementById("type");
+    if (typeSelect) typeSelect.value = tx.type;
+    if (dateInput) dateInput.value = today;
   }
 
   async function createTransaction(payload) {
