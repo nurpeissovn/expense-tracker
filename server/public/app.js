@@ -146,7 +146,13 @@
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const msg = await res.text();
+      let msg = await res.text();
+      try {
+        const parsed = JSON.parse(msg);
+        msg = parsed.error || parsed.message || msg;
+      } catch (_e) {
+        // keep text
+      }
       throw new Error(msg || "Failed to create");
     }
     return res.json();
@@ -157,12 +163,24 @@
     if (!res.ok) throw new Error("Delete failed");
   }
 
-  const currencyFormatter = new Intl.NumberFormat("kk-KZ", {
-    style: "currency",
-    currency: "KZT",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const currencyFormatter = (() => {
+    try {
+      return new Intl.NumberFormat("kk-KZ", {
+        style: "currency",
+        currency: "KZT",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch (err) {
+      console.warn("Falling back currency formatter", err);
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "KZT",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+  })();
 
   function formatCurrency(val) {
     return currencyFormatter.format(Number(val) || 0);
