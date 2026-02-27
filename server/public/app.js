@@ -37,6 +37,30 @@
     showError(e.message || "Unexpected error", e.error);
   });
 
+  // Currency formatter (must be initialized before any renders)
+  const currencyFormatter = (() => {
+    try {
+      return new Intl.NumberFormat("kk-KZ", {
+        style: "currency",
+        currency: "KZT",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch (err) {
+      console.warn("Falling back currency formatter", err);
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "KZT",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+  })();
+
+  function formatCurrency(val) {
+    return currencyFormatter.format(Number(val) || 0);
+  }
+
   let transactions = [];
 
   const today = new Date().toISOString().split("T")[0];
@@ -192,29 +216,6 @@
   async function deleteRemote(id) {
     const res = await fetch(`${API_BASE}/transactions/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Delete failed");
-  }
-
-  const currencyFormatter = (() => {
-    try {
-      return new Intl.NumberFormat("kk-KZ", {
-        style: "currency",
-        currency: "KZT",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    } catch (err) {
-      console.warn("Falling back currency formatter", err);
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "KZT",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    }
-  })();
-
-  function formatCurrency(val) {
-    return currencyFormatter.format(Number(val) || 0);
   }
 
   function renderTotals() {
