@@ -7,22 +7,38 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="sidebar.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app">
     <aside class="sidebar" id="section-budget">
-      <div class="brand">
-        <div class="logo-dot"></div>
-        <div>
-          <p class="eyebrow">Fintrack</p>
-          <h1>Expense Tracker</h1>
-        </div>
+      <div class="sidebar__top">
+        <div class="logo-circle">F</div>
+        <span class="logo-text">FinSet</span>
       </div>
-      <nav class="nav">
-        <button class="nav-btn active" data-target="section-dashboard">Dashboard</button>
-        <button class="nav-btn" data-target="section-transactions">Transactions</button>
-        <button class="nav-btn" data-target="section-budget">Budget</button>
+      <nav class="sidebar__nav">
+        <button class="nav-item active" data-target="section-dashboard">
+          <span class="icon">🏠</span><span class="label">Dashboard</span>
+        </button>
+        <button class="nav-item" data-target="section-transactions">
+          <span class="icon">💳</span><span class="label">Transactions</span>
+        </button>
+        <button class="nav-item" data-target="section-budget">
+          <span class="icon">📊</span><span class="label">Budget</span>
+        </button>
+        <button class="nav-item">
+          <span class="icon">👛</span><span class="label">Wallet</span>
+        </button>
+        <button class="nav-item">
+          <span class="icon">🎯</span><span class="label">Goals</span>
+        </button>
+        <button class="nav-item">
+          <span class="icon">📈</span><span class="label">Analytics</span>
+        </button>
+        <button class="nav-item">
+          <span class="icon">⚙️</span><span class="label">Settings</span>
+        </button>
       </nav>
       <div class="budget-box">
         <div class="budget-header">
@@ -39,6 +55,14 @@
         <p class="muted" id="budgetMessage">No budget set.</p>
         <div id="budgetItems" class="budget-items"></div>
         <button class="ghost-btn full" id="manageBudgetBtn" type="button">Manage monthly budget</button>
+      </div>
+      <div class="sidebar__bottom">
+        <button class="nav-item">
+          <span class="icon">❓</span><span class="label">Help</span>
+        </button>
+        <button class="nav-item">
+          <span class="icon">↩️</span><span class="label">Log out</span>
+        </button>
       </div>
     </aside>
 
@@ -219,5 +243,24 @@
     </div>
   </div>
   <script src="app.js"></script>
+  <script>
+    // collapse sidebar on small screens
+    (function () {
+      const mq = window.matchMedia("(max-width: 768px)");
+      const sidebar = document.querySelector(".sidebar");
+      const labels = document.querySelectorAll(".nav-item .label, .logo-text");
+      function update(e) {
+        if (e.matches) {
+          sidebar.classList.add("collapsed");
+          labels.forEach((el) => (el.style.display = "none"));
+        } else {
+          sidebar.classList.remove("collapsed");
+          labels.forEach((el) => (el.style.display = ""));
+        }
+      }
+      update(mq);
+      mq.addEventListener("change", update);
+    })();
+  </script>
 </body>
 </html>
