@@ -128,6 +128,9 @@ body {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(10px);
 }
+[data-theme="dark"] .budget-box {
+  background: #161b2a;
+}
 .budget-header {
   display: flex;
   justify-content: space-between;
@@ -168,6 +171,35 @@ body {
   width: 0;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   transition: width 0.3s ease, background 0.3s ease;
+}
+.budget-items {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.budget-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: var(--surface-2);
+}
+[data-theme="dark"] .budget-item {
+  background: #1c2134;
+  border-color: #2f3b54;
+}
+.budget-name {
+  color: var(--text);
+}
+.budget-amt {
+  color: var(--muted);
+  font-weight: 600;
+}
+.ghost-btn.full {
+  width: 100%;
 }
 
 main {
@@ -540,6 +572,62 @@ h2 {
 [data-theme="dark"] .transaction {
   background: #131c2c;
   border-color: #2e3c54;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal.show {
+  display: flex;
+}
+.modal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  width: min(520px, 90vw);
+  box-shadow: var(--shadow);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.budget-modal-add {
+  display: grid;
+  grid-template-columns: 1fr 140px auto;
+  gap: 8px;
+  margin: 10px 0;
+}
+.budget-items-modal {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.budget-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.budget-remove {
+  padding: 4px 8px;
+  border-radius: 10px;
 }
 .transaction:hover {
   border-color: var(--accent);

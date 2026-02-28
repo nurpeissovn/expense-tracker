@@ -3,6 +3,7 @@
   const STORAGE_KEY = "et-transactions-v3";
   const THEME_KEY = "et-theme";
   const BUDGET_KEY = "et-budget";
+  const BUDGET_DETAIL_KEY = "et-budget-detail";
   const API_BASE = `${window.location.origin}/api`;
   const todayISO = new Date().toISOString().split("T")[0];
 
@@ -34,6 +35,16 @@
     budgetBar: byId("budgetBar"),
     budgetMessage: byId("budgetMessage"),
     budgetStatus: byId("budgetStatus"),
+    budgetItems: byId("budgetItems"),
+    manageBudgetBtn: byId("manageBudgetBtn"),
+    budgetModal: byId("budgetModal"),
+    budgetModalClose: byId("budgetModalClose"),
+    budgetModalSave: byId("budgetModalSave"),
+    budgetModalTotal: byId("budgetModalTotal"),
+    budgetItemName: byId("budgetItemName"),
+    budgetItemAmount: byId("budgetItemAmount"),
+    budgetItemAdd: byId("budgetItemAdd"),
+    budgetItemsModalList: byId("budgetItemsModalList"),
     quickAdd: byId("quickAdd"),
     rollupSelect: byId("rollupCategory"),
     rollupTotal: byId("rollupTotal"),
@@ -56,6 +67,7 @@
 
   let transactions = loadData().map(normalizeTx);
   let budget = loadBudget();
+  let budgetDetail = loadBudgetDetail();
   let donutState = [];
   let linePoints = [];
   let barRects = [];
@@ -114,9 +126,25 @@
     return val ? Number(val) || 0 : 0;
   }
 
+  function loadBudgetDetail() {
+    try {
+      return JSON.parse(localStorage.getItem(BUDGET_DETAIL_KEY)) || { total: budget, items: [] };
+    } catch {
+      return { total: budget, items: [] };
+    }
+  }
+
   function saveBudget(val) {
     budget = Number(val) || 0;
     localStorage.setItem(BUDGET_KEY, budget);
+    budgetDetail.total = budget;
+    saveBudgetDetail();
+  }
+
+  function saveBudgetDetail() {
+    localStorage.setItem(BUDGET_DETAIL_KEY, JSON.stringify(budgetDetail));
+    localStorage.setItem(BUDGET_KEY, budgetDetail.total || 0);
+    budget = budgetDetail.total || 0;
     renderBudget();
   }
 
@@ -373,20 +401,43 @@
   }
 
   function renderBudget() {
-    els.budgetInput.value = budget || "";
+    els.budgetInput.value = budgetDetail.total || "";
     const spent = sum(transactions.filter((t) => t.type === "expense").map((t) => t.amount));
-    const pct = budget > 0 ? Math.min((spent / budget) * 100, 150) : 0;
+    const pct = budgetDetail.total > 0 ? Math.min((spent / budgetDetail.total) * 100, 150) : 0;
     els.budgetBar.style.width = `${pct}%`;
-    els.budgetBar.style.background = spent > budget && budget > 0 ? "var(--danger)" : "linear-gradient(135deg, var(--accent), var(--accent-2))";
-    if (!budget) {
+    els.budgetBar.style.background =
+      spent > budgetDetail.total && budgetDetail.total > 0 ? "var(--danger)" : "linear-gradient(135deg, var(--accent), var(--accent-2))";
+    if (!budgetDetail.total) {
       els.budgetStatus.textContent = "Set";
       els.budgetMessage.textContent = "No budget set.";
-    } else if (spent <= budget) {
+    } else if (spent <= budgetDetail.total) {
       els.budgetStatus.textContent = "On track";
-      els.budgetMessage.textContent = `${kzt(budget - spent)} remaining`;
+      els.budgetMessage.textContent = `${kzt(budgetDetail.total - spent)} remaining`;
     } else {
       els.budgetStatus.textContent = "Over";
-      els.budgetMessage.textContent = `Over by ${kzt(spent - budget)}`;
+      els.budgetMessage.textContent = `Over by ${kzt(spent - budgetDetail.total)}`;
+    }
+
+    if (els.budgetItems) {
+      els.budgetItems.innerHTML =
+        budgetDetail.items?.length
+          ? budgetDetail.items
+              .map(
+                (item, idx) => `<label class="budget-item">
+              <input type="checkbox" data-idx="${idx}" ${item.paid ? "checked" : ""}/>
+              <span class="budget-name">${item.name}</span>
+              <span class="budget-amt">${kzt(item.amount || 0)}</span>
+            </label>`
+              )
+              .join("")
+          : `<p class="muted">No recurring items yet.</p>`;
+      els.budgetItems.querySelectorAll("input[type='checkbox']").forEach((cb) => {
+        cb.onchange = (e) => {
+          const i = Number(e.target.dataset.idx);
+          budgetDetail.items[i].paid = e.target.checked;
+          saveBudgetDetail();
+        };
+      });
     }
   }
 
@@ -511,6 +562,76 @@
       saveBudget(e.target.value);
       toast("Budget updated");
     });
+    if (els.manageBudgetBtn) els.manageBudgetBtn.onclick = openBudgetModal;
+    if (els.budgetModalClose) els.budgetModalClose.onclick = closeBudgetModal;
+    if (els.budgetModal) {
+      els.budgetModal.addEventListener("click", (e) => {
+        if (e.target === els.budgetModal) closeBudgetModal();
+      });
+    }
+    if (els.budgetItemAdd) {
+      els.budgetItemAdd.onclick = () => {
+        const name = els.budgetItemName.value.trim();
+        const amt = Number(els.budgetItemAmount.value);
+        if (!name) return;
+        budgetDetail.items.push({ name, amount: amt || 0, paid: false });
+        els.budgetItemName.value = "";
+        els.budgetItemAmount.value = "";
+        renderBudgetModalList();
+      };
+    }
+    if (els.budgetModalSave) {
+      els.budgetModalSave.onclick = () => {
+        budgetDetail.total = Number(els.budgetModalTotal.value) || 0;
+        saveBudgetDetail();
+        closeBudgetModal();
+        toast("Monthly budget saved");
+      };
+    }
+  }
+
+  function renderBudgetModalList() {
+    if (!els.budgetItemsModalList) return;
+    els.budgetItemsModalList.innerHTML =
+      budgetDetail.items?.length > 0
+        ? budgetDetail.items
+            .map(
+              (item, idx) => `<div class="budget-item-row">
+                <label>
+                  <input type="checkbox" data-idx="${idx}" ${item.paid ? "checked" : ""}/> ${item.name}
+                </label>
+                <div>
+                  <span class="muted">${kzt(item.amount || 0)}</span>
+                  <button class="ghost-btn budget-remove" data-idx="${idx}" type="button">×</button>
+                </div>
+              </div>`
+            )
+            .join("")
+        : `<p class="muted">No items yet.</p>`;
+    els.budgetItemsModalList.querySelectorAll("input[type='checkbox']").forEach((cb) => {
+      cb.onchange = (e) => {
+        const i = Number(e.target.dataset.idx);
+        budgetDetail.items[i].paid = e.target.checked;
+      };
+    });
+    els.budgetItemsModalList.querySelectorAll(".budget-remove").forEach((btn) => {
+      btn.onclick = (e) => {
+        const i = Number(e.target.dataset.idx);
+        budgetDetail.items.splice(i, 1);
+        renderBudgetModalList();
+      };
+    });
+  }
+
+  function openBudgetModal() {
+    if (!els.budgetModal) return;
+    els.budgetModalTotal.value = budgetDetail.total || "";
+    renderBudgetModalList();
+    els.budgetModal.classList.add("show");
+  }
+  function closeBudgetModal() {
+    if (!els.budgetModal) return;
+    els.budgetModal.classList.remove("show");
   }
 
   function setupTooltip() {
