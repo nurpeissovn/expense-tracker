@@ -24,6 +24,7 @@ body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   background: #f6f7fb;
   color: var(--text);
+  display: flex;
 }
 
 .sidebar {
@@ -37,6 +38,7 @@ body {
   grid-template-rows: auto 1fr auto;
   gap: 14px;
   box-shadow: var(--shadow);
+  height: 100vh;
 }
 
 .sidebar__top {
