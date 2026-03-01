@@ -3,14 +3,20 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# Cache dependencies
-COPY go.mod go.sum ./
+# Install git (required by go mod tidy)
+RUN apk --no-cache add git
+
+# Copy go.mod only — then download deps (no go.sum yet so no checksum errors)
+COPY go.mod ./
 RUN go mod download
 
-# Copy source
+# Copy all source files
 COPY . .
 
-# Build the server binary
+# Regenerate go.sum with correct real checksums (fixes any mismatch from local go.sum)
+RUN rm -f go.sum && go mod tidy
+
+# Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
     -o /finset \
@@ -19,13 +25,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM alpine:3.20
 
-# CA certs for TLS connections to PostgreSQL
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 COPY --from=builder /finset /app/finset
 
-# Railway injects PORT automatically
 EXPOSE 8080
-
 CMD ["/app/finset"]
