@@ -17,15 +17,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/server
 
 # ── Runtime stage ──────────────────────────────────────────────────────────────
-FROM alpine:3.20
-
-# CA certs for TLS connections to PostgreSQL
-RUN apk --no-cache add ca-certificates tzdata
+FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 COPY --from=builder /finset /app/finset
 
-# Railway injects PORT automatically
 EXPOSE 8080
-
-CMD ["/app/finset"]
+ENTRYPOINT ["/app/finset"]
