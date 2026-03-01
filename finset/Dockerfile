@@ -25,13 +25,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /finset \
     ./cmd/server
 
-# ── Runtime stage ──────────────────────────────────────────────────────────────
-FROM alpine:3.20
-
-RUN apk --no-cache add ca-certificates tzdata
+# ── Runtime stage ───────────────────────────
+FROM gcr.io/distroless/base-debian12:nonroot
+COPY --from=builder /finset /app/finset
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/  # ensure TLS works
 
 WORKDIR /app
-COPY --from=builder /finset /app/finset
-
 EXPOSE 8080
-CMD ["/app/finset"]
+ENTRYPOINT ["/app/finset"]
+
