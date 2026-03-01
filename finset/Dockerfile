@@ -13,6 +13,9 @@ RUN go mod download
 # Copy all source files
 COPY . .
 
+# Make static assets available adjacent to cmd/server for go:embed static/*
+RUN mkdir -p cmd/server/static && cp -r static/* cmd/server/static/ || true
+
 # Regenerate go.sum with correct real checksums (fixes any mismatch from local go.sum)
 RUN rm -f go.sum && go mod tidy
 

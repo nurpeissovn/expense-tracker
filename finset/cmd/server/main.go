@@ -16,7 +16,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static/index.html static/.gitkeep
+//go:embed static/*
 var staticFiles embed.FS
 
 func main() {
