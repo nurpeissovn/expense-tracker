@@ -39,11 +39,10 @@ func Connect() (*Pool, error) {
 	for attempt := 1; attempt <= 10; attempt++ {
 		pool, err = pgxpool.NewWithConfig(context.Background(), cfg)
 		if err == nil {
-			if pingErr := pool.Ping(context.Background()); pingErr == nil {
+			if err = pool.Ping(context.Background()); err == nil {
 				break
 			}
 			pool.Close()
-			err = pingErr
 		}
 		log.Printf("DB connect attempt %d/10 failed: %v — retrying in 3s…", attempt, err)
 		time.Sleep(3 * time.Second)
