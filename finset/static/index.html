@@ -1253,6 +1253,7 @@ const LS_SEEDED  = 'finset_seeded';
 const LS_THEME   = 'finset-theme';
 const LS_PAGE    = 'finset-page';
 const LS_SIDEBAR = 'finset-sidebar';
+const API_BASE   = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '') || (window.FINSET_API_BASE||'').replace(/\/$/,'');
 
 const CAT_COLORS = {
   'Food':          '#7c5cfc',
@@ -1300,11 +1301,11 @@ function getDemoData() {
 /* ══════════════════════════════════════════
    STORAGE HELPERS
 ══════════════════════════════════════════ */
-function loadTransactions() {
-  try { return JSON.parse(localStorage.getItem(LS_TX) || '[]'); } catch { return []; }
-}
+let txCache = [];
+function loadTransactions() { return txCache; }
 function saveTransactions(txs) {
-  localStorage.setItem(LS_TX, JSON.stringify(txs));
+  txCache = Array.isArray(txs) ? txs : [];
+  localStorage.setItem(LS_TX, JSON.stringify(txCache));
 }
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -1314,6 +1315,53 @@ function uid() {
 if (!localStorage.getItem(LS_SEEDED)) {
   saveTransactions(getDemoData());
   localStorage.setItem(LS_SEEDED, '1');
+}
+try { txCache = JSON.parse(localStorage.getItem(LS_TX) || '[]'); } catch { txCache = []; }
+
+async function tryFetchFromApi() {
+  if (!API_BASE) return null;
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions`, { headers:{Accept:'application/json'} });
+    if (!res.ok) throw new Error('bad status');
+    const rows = await res.json();
+    const mapped = (rows||[]).map((r,idx)=>({
+      id: r.id || uid()+idx,
+      type: r.type || r.kind || 'expense',
+      amount: Number(r.amount||0),
+      category: r.category || r.note || 'Uncategorized',
+      method: r.method || 'Card',
+      date: r.dateISO || r.date || r.dateiso || r.created_at?.slice(0,10) || new Date().toISOString().slice(0,10),
+      note: r.note || r.description || ''
+    }));
+    saveTransactions(mapped);
+    return mapped;
+  } catch { return null; }
+}
+
+async function pushTransactionApi(tx) {
+  if (!API_BASE) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: tx.type,
+        amount: tx.amount,
+        category: tx.category,
+        note: tx.note,
+        date: tx.date,
+      })
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+async function deleteTransactionApi(id) {
+  if (!API_BASE) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions/${id}`, { method:'DELETE' });
+    return res.ok;
+  } catch { return false; }
 }
 
 /* ══════════════════════════════════════════
@@ -1605,10 +1653,17 @@ function txRowHtml(t, showDelete) {
   </tr>`;
 }
 
-function deleteTransaction(id) {
+async function deleteTransaction(id) {
   if (!confirm('Delete this transaction?')) return;
-  const txs = loadTransactions().filter(t => t.id !== id);
-  saveTransactions(txs);
+  let refreshed = false;
+  if (await deleteTransactionApi(id)) {
+    const fresh = await tryFetchFromApi();
+    if (fresh) { saveTransactions(fresh); refreshed = true; }
+  }
+  if (!refreshed) {
+    const txs = loadTransactions().filter(t => t.id !== id);
+    saveTransactions(txs);
+  }
   updateTxBadge();
   applyTxFilters();
   renderDashboard();
@@ -1754,7 +1809,7 @@ function closeModal() {
   document.getElementById('txModal').classList.remove('open');
 }
 
-function submitTransaction() {
+async function submitTransaction() {
   let valid = true;
   const amtRaw = parseFloat(document.getElementById('fAmount').value);
   if (isNaN(amtRaw) || amtRaw <= 0) {
@@ -1795,6 +1850,10 @@ function submitTransaction() {
   const txs = loadTransactions();
   txs.push(tx);
   saveTransactions(txs);
+  if (await pushTransactionApi(tx)) {
+    const fresh = await tryFetchFromApi();
+    if (fresh) saveTransactions(fresh);
+  }
 
   closeModal();
   updateTxBadge();
@@ -2005,14 +2064,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem(LS_THEME) || 'light';
   applyTheme(savedTheme);
 
-  // ── INIT PAGE (hash or localStorage) ──
-  const hashPage = location.hash.slice(1);
-  const storedPage = localStorage.getItem(LS_PAGE) || 'dashboard';
-  const initPage = PAGES.includes(hashPage) ? hashPage : storedPage;
-  setActivePage(initPage);
+  // ── DATA SYNC THEN INIT PAGE ──
+  (async () => {
+    const apiData = await tryFetchFromApi();
+    if (apiData === null && txCache.length === 0) {
+      saveTransactions(getDemoData());
+    }
+    updateTxBadge();
 
-  // Replace initial history state
-  history.replaceState({page:initPage}, '', '#' + initPage);
+    const hashPage = location.hash.slice(1);
+    const storedPage = localStorage.getItem(LS_PAGE) || 'dashboard';
+    const initPage = PAGES.includes(hashPage) ? hashPage : storedPage;
+    setActivePage(initPage);
+    history.replaceState({page:initPage}, '', '#' + initPage);
+  })();
 });
 </script>
 </body>
