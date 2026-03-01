@@ -1,5 +1,9 @@
 (() => {
-  const API = `${location.origin}/api/transactions`;
+  const apiBase =
+    (document.querySelector('meta[name="api-base"]')?.content || "").trim() ||
+    (typeof window !== "undefined" ? window.FINSET_API_BASE : "") ||
+    location.origin;
+  const API = `${apiBase.replace(/\/$/, "")}/api/transactions`;
   const STORAGE_KEY = "transactions";
   const demo = [
     { id: 1, type: "income", amount: 8500, category: "Salary", dateISO: "2024-01-05" },
@@ -222,37 +226,52 @@
   }
 
   function wireUI() {
-    document.querySelectorAll('.nav-item').forEach(a =>
-      a.addEventListener('click', () => {
-        document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
-        a.classList.add('active');
+    document.querySelectorAll(".nav-item").forEach((a) =>
+      a.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item").forEach((x) => x.classList.remove("active"));
+        a.classList.add("active");
       })
     );
-    document.querySelectorAll('.pill').forEach(p =>
-      p.addEventListener('click', () => {
-        document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-        p.classList.add('active');
+    document.querySelectorAll(".pill").forEach((p) =>
+      p.addEventListener("click", () => {
+        document.querySelectorAll(".pill").forEach((x) => x.classList.remove("active"));
+        p.classList.add("active");
       })
     );
-    // theme toggle
-    const tog = document.getElementById('themeToggle');
-    const lbl = document.getElementById('themeLabel');
+
+    const tog = document.getElementById("themeToggle");
+    const lbl = document.getElementById("themeLabel");
     const html = document.documentElement;
-    const saved = localStorage.getItem('finset-theme') || 'light';
-    html.setAttribute('data-theme', saved);
-    lbl.textContent = saved === 'dark' ? 'Dark mode' : 'Light mode';
-    tog.addEventListener('click', () => {
-      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', next);
-      lbl.textContent = next === 'dark' ? 'Dark mode' : 'Light mode';
-      try { localStorage.setItem('finset-theme', next); } catch(e) {}
-    });
+    const body = document.body;
+    const applyTheme = (theme) => {
+      html.setAttribute("data-theme", theme);
+      html.dataset.theme = theme;
+      body.setAttribute("data-theme", theme);
+      body.classList.toggle("dark", theme === "dark");
+      body.classList.toggle("light", theme !== "dark");
+      if (lbl) lbl.textContent = theme === "dark" ? "Dark mode" : "Light mode";
+      try {
+        localStorage.setItem("finset-theme", theme);
+      } catch (e) {}
+    };
+
+    const saved = localStorage.getItem("finset-theme") || html.getAttribute("data-theme") || "light";
+    applyTheme(saved);
+
+    if (tog) {
+      tog.addEventListener("click", () => {
+        const next = (html.getAttribute("data-theme") || "light") === "light" ? "dark" : "light";
+        applyTheme(next);
+      });
+    }
 
     // animate goals
-    document.querySelectorAll('.prog-f').forEach(b => {
+    document.querySelectorAll(".prog-f").forEach((b) => {
       const w = b.dataset.w || b.style.width || "30";
-      b.style.width = '0%';
-      setTimeout(() => { b.style.width = w + '%'; }, 400);
+      b.style.width = "0%";
+      setTimeout(() => {
+        b.style.width = w + "%";
+      }, 400);
     });
   }
 })();

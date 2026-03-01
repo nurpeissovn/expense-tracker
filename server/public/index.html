@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Optional: set your API base (e.g. https://your-railway-app.up.railway.app) so frontend can reach backend when served from GitHub Pages -->
+<meta name="api-base" content="">
 <title>FinSet – Finance Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -76,6 +78,10 @@ body {
   overflow:hidden;
   transition:background .3s, color .3s;
 }
+
+/* inherit theme on body when JS toggles data-theme there */
+body[data-theme="dark"] { color-scheme: dark; }
+body[data-theme="light"] { color-scheme: light; }
 
 /* ─── SIDEBAR ─── */
 .sidebar {
