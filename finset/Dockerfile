@@ -3,12 +3,12 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# Cache dependencies
-COPY go.mod go.sum ./
+# Cache dependencies (context root is repository root)
+COPY finset/go.mod finset/go.sum ./
 RUN go mod download
 
 # Copy source
-COPY . .
+COPY finset/. .
 
 # Build the server binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
