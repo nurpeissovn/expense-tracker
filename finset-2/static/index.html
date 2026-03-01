@@ -793,7 +793,7 @@ input[type="date"].filter-sel { color:var(--text-1); }
           <div class="u-av">AL</div>
           <div>
             <div class="u-name">Adaline Lively</div>
-            <div class="u-email">adaline@email.com</div>
+            <div class="u-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a0c1c4c1ccc9cec5e0c5cdc1c9cc8ec3cfcd">[email&#160;protected]</a></div>
           </div>
         </div>
       </div>
@@ -1170,65 +1170,47 @@ input[type="date"].filter-sel { color:var(--text-1); }
         <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-
-    <!-- Type -->
     <div class="form-row">
       <label>Type</label>
       <div class="type-toggle">
-        <button class="type-btn sel-income" id="typeBtnIncome" data-type="income">↑ Income</button>
-        <button class="type-btn"            id="typeBtnExpense" data-type="expense">↓ Expense</button>
+        <button class="type-btn sel-income" id="typeBtnIncome">↑ Income</button>
+        <button class="type-btn"            id="typeBtnExpense">↓ Expense</button>
       </div>
     </div>
-    <!-- Amount -->
     <div class="form-row">
       <label>Amount *</label>
       <input class="form-input" type="number" id="fAmount" placeholder="0.00" min="0.01" step="0.01">
       <div class="form-error" id="fAmountErr">Please enter a valid positive amount.</div>
     </div>
-    <!-- Category -->
     <div class="form-row">
       <label>Category *</label>
       <select class="form-select" id="fCategory">
         <option value="">Select category…</option>
-        <option>Food</option>
-        <option>Transport</option>
-        <option>Bills</option>
-        <option>Shopping</option>
-        <option>Health</option>
-        <option>Education</option>
-        <option>Entertainment</option>
-        <option>Salary</option>
-        <option>Freelance</option>
-        <option>Investment</option>
-        <option>Other</option>
+        <option>Food</option><option>Transport</option><option>Bills</option>
+        <option>Shopping</option><option>Health</option><option>Education</option>
+        <option>Entertainment</option><option>Salary</option><option>Freelance</option>
+        <option>Investment</option><option>Other</option>
       </select>
       <div class="form-error" id="fCategoryErr">Please select a category.</div>
     </div>
-    <!-- Custom category -->
     <div class="form-row" id="fCustomCatRow" style="display:none;">
       <label>Custom category</label>
       <input class="form-input" type="text" id="fCustomCat" placeholder="Enter category name…">
     </div>
-    <!-- Payment method -->
     <div class="form-row">
       <label>Payment method</label>
       <select class="form-select" id="fMethod">
-        <option>Cash</option>
-        <option>Card</option>
-        <option>Transfer</option>
+        <option>Cash</option><option>Card</option><option>Transfer</option>
       </select>
     </div>
-    <!-- Date -->
     <div class="form-row">
       <label>Date</label>
       <input class="form-input" type="date" id="fDate">
     </div>
-    <!-- Note -->
     <div class="form-row">
       <label>Note (optional)</label>
       <textarea class="form-textarea" id="fNote" placeholder="Add a note…"></textarea>
     </div>
-
     <div class="form-actions">
       <button class="btn-outline" id="modalCancelBtn">Cancel</button>
       <button class="btn-primary" id="modalSubmitBtn">Save transaction</button>
@@ -1236,331 +1218,219 @@ input[type="date"].filter-sel { color:var(--text-1); }
   </div>
 </div>
 
-<!-- TOAST container -->
+<!-- TOAST -->
 <div id="toastContainer"></div>
 
 <!-- ═══════════════════════════════════════════
-     JAVASCRIPT
+     JAVASCRIPT — API-DRIVEN (PostgreSQL via Go backend)
 ═══════════════════════════════════════════ -->
 <script>
 'use strict';
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
+   API CLIENT
+   All data comes from /api/* — no localStorage for transactions.
+   Theme + UI state (sidebar, page) still use localStorage.
+══════════════════════════════════ */
+const API = {
+  async get(path) {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(`GET ${path} → ${r.status}`);
+    return r.json();
+  },
+  async post(path, body) {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || `POST ${path} → ${r.status}`);
+    return data;
+  },
+  async del(path) {
+    const r = await fetch(path, {method:'DELETE'});
+    if (r.status === 404) throw new Error('not found');
+    if (!r.ok) throw new Error(`DELETE ${path} → ${r.status}`);
+  },
+};
+
+/* ══════════════════════════════════
    CONSTANTS
-══════════════════════════════════════════ */
-const LS_TX      = 'finset_transactions';
-const LS_SEEDED  = 'finset_seeded';
+══════════════════════════════════ */
 const LS_THEME   = 'finset-theme';
 const LS_PAGE    = 'finset-page';
 const LS_SIDEBAR = 'finset-sidebar';
-const API_BASE   = (document.querySelector('meta[name="api-base"]')?.content || '').replace(/\/$/, '') || (window.FINSET_API_BASE||'').replace(/\/$/,'');
-
+const PAGES      = ['dashboard','transactions','wallet','goals','budget','analytics','settings'];
 const CAT_COLORS = {
-  'Food':          '#7c5cfc',
-  'Transport':     '#9567f8',
-  'Bills':         '#a78bfa',
-  'Shopping':      '#b08cf6',
-  'Health':        '#c9aaf5',
-  'Education':     '#dfc8f4',
-  'Entertainment': '#38bdf8',
-  'Salary':        '#22c55e',
-  'Freelance':     '#4ade80',
-  'Investment':    '#f59e0b',
-  'Other':         '#6b7280',
+  'Food':'#7c5cfc','Transport':'#9567f8','Bills':'#a78bfa','Shopping':'#b08cf6',
+  'Health':'#c9aaf5','Education':'#dfc8f4','Entertainment':'#38bdf8',
+  'Salary':'#22c55e','Freelance':'#4ade80','Investment':'#f59e0b','Other':'#6b7280',
 };
 
-/* ══════════════════════════════════════════
-   DEMO SEED DATA
-══════════════════════════════════════════ */
-function getDemoData() {
-  const now = new Date();
-  const d = (offset, h=10) => {
-    const dt = new Date(now);
-    dt.setDate(dt.getDate() - offset);
-    return dt.toISOString().split('T')[0];
-  };
-  return [
-    { id:uid(), type:'income',  amount:3200, category:'Salary',     method:'Transfer', date:d(1),  note:'Monthly salary' },
-    { id:uid(), type:'expense', amount:80,   category:'Food',       method:'Card',     date:d(2),  note:'Yaposhka restaurant' },
-    { id:uid(), type:'expense', amount:150,  category:'Shopping',   method:'Card',     date:d(3),  note:'Reserved item' },
-    { id:uid(), type:'expense', amount:13,   category:'Entertainment', method:'Card',  date:d(3),  note:'YouTube Premium' },
-    { id:uid(), type:'income',  amount:800,  category:'Freelance',  method:'Transfer', date:d(5),  note:'Design project' },
-    { id:uid(), type:'expense', amount:120,  category:'Bills',      method:'Transfer', date:d(6),  note:'Electricity' },
-    { id:uid(), type:'expense', amount:55,   category:'Transport',  method:'Cash',     date:d(8),  note:'Taxi' },
-    { id:uid(), type:'expense', amount:200,  category:'Health',     method:'Card',     date:d(10), note:'Pharmacy' },
-    { id:uid(), type:'income',  amount:500,  category:'Investment', method:'Transfer', date:d(12), note:'Dividends' },
-    { id:uid(), type:'expense', amount:90,   category:'Food',       method:'Cash',     date:d(14), note:'Groceries' },
-    { id:uid(), type:'expense', amount:35,   category:'Education',  method:'Card',     date:d(16), note:'Online course' },
-    { id:uid(), type:'income',  amount:1200, category:'Freelance',  method:'Transfer', date:d(20), note:'Web project' },
-    { id:uid(), type:'expense', amount:75,   category:'Entertainment', method:'Card',  date:d(22), note:'Netflix + Spotify' },
-    { id:uid(), type:'expense', amount:300,  category:'Shopping',   method:'Card',     date:d(25), note:'Clothes' },
-    { id:uid(), type:'expense', amount:60,   category:'Transport',  method:'Card',     date:d(28), note:'Fuel' },
-  ];
-}
+/* ══════════════════════════════════
+   IN-MEMORY CACHE
+   Transactions are fetched once per page-visit and cached.
+   Cache is invalidated after write operations.
+══════════════════════════════════ */
+let _txCache = null;   // null = dirty, must re-fetch
+let _activePeriod = 'month';
+let _selectedType  = 'income';
 
-/* ══════════════════════════════════════════
-   STORAGE HELPERS
-══════════════════════════════════════════ */
-let txCache = [];
-function loadTransactions() { return txCache; }
-function saveTransactions(txs) {
-  txCache = Array.isArray(txs) ? txs : [];
-  localStorage.setItem(LS_TX, JSON.stringify(txCache));
+async function getTx() {
+  if (_txCache === null) {
+    _txCache = await API.get('/api/transactions');
+  }
+  return _txCache;
 }
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-}
+function invalidateCache() { _txCache = null; }
 
-/* Seed once */
-if (!localStorage.getItem(LS_SEEDED)) {
-  saveTransactions(getDemoData());
-  localStorage.setItem(LS_SEEDED, '1');
-}
-try { txCache = JSON.parse(localStorage.getItem(LS_TX) || '[]'); } catch { txCache = []; }
-
-async function tryFetchFromApi() {
-  if (!API_BASE) return null;
-  try {
-    const res = await fetch(`${API_BASE}/api/transactions`, { headers:{Accept:'application/json'} });
-    if (!res.ok) throw new Error('bad status');
-    const rows = await res.json();
-    const mapped = (rows||[]).map((r,idx)=>({
-      id: r.id || uid()+idx,
-      type: r.type || r.kind || 'expense',
-      amount: Number(r.amount||0),
-      category: r.category || r.note || 'Uncategorized',
-      method: r.method || 'Card',
-      date: r.dateISO || r.date || r.dateiso || r.created_at?.slice(0,10) || new Date().toISOString().slice(0,10),
-      note: r.note || r.description || ''
-    }));
-    saveTransactions(mapped);
-    return mapped;
-  } catch { return null; }
-}
-
-async function pushTransactionApi(tx) {
-  if (!API_BASE) return false;
-  try {
-    const res = await fetch(`${API_BASE}/api/transactions`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        type: tx.type,
-        amount: tx.amount,
-        category: tx.category,
-        note: tx.note,
-        date: tx.date,
-      })
-    });
-    return res.ok;
-  } catch { return false; }
-}
-
-async function deleteTransactionApi(id) {
-  if (!API_BASE) return false;
-  try {
-    const res = await fetch(`${API_BASE}/api/transactions/${id}`, { method:'DELETE' });
-    return res.ok;
-  } catch { return false; }
-}
-
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    ROUTER
-══════════════════════════════════════════ */
-const PAGES = ['dashboard','transactions','wallet','goals','budget','analytics','settings'];
-
+══════════════════════════════════ */
 function setActivePage(page) {
   if (!PAGES.includes(page)) page = 'dashboard';
-
-  // Update sections
-  document.querySelectorAll('.page').forEach(p => {
-    p.classList.toggle('active', p.dataset.page === page);
-  });
-
-  // Update nav
-  document.querySelectorAll('[data-page]').forEach(el => {
-    if (el.classList.contains('nav-item')) {
-      el.classList.toggle('active', el.dataset.page === page);
-    }
-  });
-
-  // Hash + storage
+  document.querySelectorAll('.page').forEach(p =>
+    p.classList.toggle('active', p.dataset.page === page));
+  document.querySelectorAll('#mainNav [data-page]').forEach(el =>
+    el.classList.toggle('active', el.dataset.page === page));
   history.pushState({page}, '', '#' + page);
   localStorage.setItem(LS_PAGE, page);
-
-  // Render page content
   renderPage(page);
-
-  // Animate progress bars on goals/dashboard
-  setTimeout(() => animateProgressBars(), 100);
+  setTimeout(animateProgressBars, 120);
 }
 
-function renderPage(page) {
+async function renderPage(page) {
   switch(page) {
-    case 'dashboard':    renderDashboard(); break;
-    case 'transactions': renderTransactionsPage(); break;
-    case 'analytics':    renderAnalyticsPage(); break;
-    case 'budget':       renderBudgetPage(); break;
-    case 'wallet':       renderWalletPage(); break;
+    case 'dashboard':    await renderDashboard();          break;
+    case 'transactions': await renderTransactionsPage();   break;
+    case 'analytics':    await renderAnalyticsPage();      break;
+    case 'budget':       await renderBudgetPage();         break;
+    case 'wallet':       await renderWalletPage();         break;
   }
 }
 
-// Hash routing
 window.addEventListener('popstate', e => {
-  const page = (e.state && e.state.page) || (location.hash.slice(1)) || 'dashboard';
+  const page = (e.state && e.state.page) || location.hash.slice(1) || 'dashboard';
   setActivePage(page);
 });
 
-/* ══════════════════════════════════════════
-   DASHBOARD RENDER
-══════════════════════════════════════════ */
-let activePeriod = 'month';
+/* ══════════════════════════════════
+   DASHBOARD
+══════════════════════════════════ */
+async function renderDashboard() {
+  showPageSpinner('dashStats');
+  try {
+    const [txs, monthlyFlow, catBreak] = await Promise.all([
+      getTx(),
+      API.get('/api/monthly-flow?months=7'),
+      API.get('/api/category-breakdown'),
+    ]);
 
-function getFilteredTx(period) {
-  const all = loadTransactions();
+    renderDashStats(txs);
+    renderDashRecentTx(txs);
+    renderMoneyFlowChart(monthlyFlow);
+    renderDonut('donutSvg','donutTotal','donutLegend', catBreak);
+    updateTxBadge(txs.length);
+  } catch(e) {
+    showError('dashStats', e.message);
+  }
+}
+
+function filterTxByPeriod(txs, period) {
   const now = new Date();
   if (period === 'week') {
-    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
-    return all.filter(t => new Date(t.date) >= cutoff);
+    const cut = new Date(now); cut.setDate(cut.getDate()-7);
+    return txs.filter(t => new Date(t.date) >= cut);
   }
   if (period === 'month') {
-    const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30);
-    return all.filter(t => new Date(t.date) >= cutoff);
+    const cut = new Date(now); cut.setDate(cut.getDate()-30);
+    return txs.filter(t => new Date(t.date) >= cut);
   }
-  return all; // all
+  return txs;
 }
 
-function renderDashboard() {
-  const txs = getFilteredTx(activePeriod);
-  const income  = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount, 0);
-  const expense = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount, 0);
+function renderDashStats(allTxs) {
+  const txs    = filterTxByPeriod(allTxs, _activePeriod);
+  const income  = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
   const balance = income - expense;
-  const all = loadTransactions();
-  const totalIncome  = all.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const totalExpense = all.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  const savings = totalIncome - totalExpense;
+  const totalInc = allTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalExp = allTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const savings  = Math.max(0, totalInc - totalExp);
 
-  // Stat cards
-  const statsEl = document.getElementById('dashStats');
-  statsEl.innerHTML = `
-    <div class="sc">
-      <div class="sc-head"><span class="sc-lbl">Total balance</span><span class="sc-arrow"><svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span></div>
-      <div class="sc-val">${fmtCurrency(balance)}</div>
-      <span class="chg ${balance>=0?'up':'dn'}">
-        <svg viewBox="0 0 24 24">${balance>=0?'<polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/>':'<polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>'}
-        </svg>${balance>=0?'+':''}</span>
-      <span class="chg-vs">period net</span>
-    </div>
-    <div class="sc">
-      <div class="sc-head"><span class="sc-lbl">Income</span><span class="sc-arrow"><svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span></div>
-      <div class="sc-val">${fmtCurrency(income)}</div>
-      <span class="chg up"><svg viewBox="0 0 24 24"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>+</span>
-      <span class="chg-vs">period total</span>
-    </div>
-    <div class="sc">
-      <div class="sc-head"><span class="sc-lbl">Expense</span><span class="sc-arrow"><svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span></div>
-      <div class="sc-val">${fmtCurrency(expense)}</div>
-      <span class="chg dn"><svg viewBox="0 0 24 24"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg>−</span>
-      <span class="chg-vs">period total</span>
-    </div>
-    <div class="sc">
-      <div class="sc-head"><span class="sc-lbl">Net savings</span><span class="sc-arrow"><svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span></div>
-      <div class="sc-val">${fmtCurrency(Math.max(0,savings))}</div>
-      <span class="chg up"><svg viewBox="0 0 24 24"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>all time</span>
-      <span class="chg-vs">accumulated</span>
-    </div>`;
-
-  // Recent 5 transactions
-  const sorted = [...loadTransactions()].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const tbody = document.getElementById('dashTxBody');
-  if (sorted.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="tx-empty" style="text-align:center;padding:24px;color:var(--text-2);">No transactions yet. Add one!</td></tr>`;
-  } else {
-    tbody.innerHTML = sorted.slice(0,5).map(t => txRowHtml(t, false)).join('');
-  }
-
-  // Chart
-  renderMoneyFlowChart();
-
-  // Donut
-  renderDonut('donutSvg','donutTotal','donutLegend', loadTransactions().filter(t=>t.type==='expense'));
-
-  // Wallet balance
-  const walletBal = document.getElementById('walletMainBal');
-  if (walletBal) walletBal.textContent = fmtCurrency(balance);
+  const el = document.getElementById('dashStats');
+  if (!el) return;
+  el.innerHTML = `
+    ${statCard('Total balance', balance, balance>=0?'up':'dn', 'period net')}
+    ${statCard('Income', income, 'up', 'period total')}
+    ${statCard('Expense', expense, 'dn', 'period total')}
+    ${statCard('Net savings', savings, 'up', 'accumulated')}`;
 }
 
-/* ══════════════════════════════════════════
+function statCard(label, val, dir, sub) {
+  const arrow = dir==='up'
+    ? '<polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/>'
+    : '<polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>';
+  return `<div class="sc">
+    <div class="sc-head"><span class="sc-lbl">${esc(label)}</span>
+      <span class="sc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
+    </div>
+    <div class="sc-val">${fmtCurrency(val)}</div>
+    <span class="chg ${dir}"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5">${arrow}</svg></span>
+    <span class="chg-vs">${esc(sub)}</span>
+  </div>`;
+}
+
+function renderDashRecentTx(txs) {
+  const tbody = document.getElementById('dashTxBody');
+  if (!tbody) return;
+  const sorted = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  tbody.innerHTML = sorted.length
+    ? sorted.map(t => txRowHtml(t, false)).join('')
+    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-2);">No transactions yet. Add one!</td></tr>`;
+}
+
+/* ══════════════════════════════════
    MONEY FLOW CHART
-══════════════════════════════════════════ */
-function renderMoneyFlowChart() {
+══════════════════════════════════ */
+function renderMoneyFlowChart(rows) {
   const barsEl = document.getElementById('cBars');
   const xlEl   = document.getElementById('cXL');
   if (!barsEl) return;
   barsEl.innerHTML = ''; xlEl.innerHTML = '';
 
-  const all = loadTransactions();
-  // Build last 7 months
-  const labels = [], incData = [], expData = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleString('en',{month:'short'});
-    const y = d.getFullYear(), m = d.getMonth();
-    const monthly = all.filter(t => {
-      const td = new Date(t.date);
-      return td.getFullYear()===y && td.getMonth()===m;
-    });
-    labels.push(label);
-    incData.push(monthly.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0));
-    expData.push(monthly.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0));
-  }
+  const maxVal = Math.max(...rows.map(r=>Math.max(r.income,r.expense)), 1);
+  const setYt = (id,v) => { const el=document.getElementById(id); if(el) el.textContent='$'+fmtK(v); };
+  setYt('ytMax',maxVal); setYt('ytMid',Math.round(maxVal*.66)); setYt('ytLow',Math.round(maxVal*.33));
 
-  const maxVal = Math.max(...incData, ...expData, 1);
-  // Update y labels
-  const setYt = (id, val) => { const el=document.getElementById(id); if(el) el.textContent='$'+fmtK(val); };
-  setYt('ytMax', maxVal);
-  setYt('ytMid', Math.round(maxVal*0.66));
-  setYt('ytLow', Math.round(maxVal*0.33));
-
-  labels.forEach((m,i) => {
+  rows.forEach(row => {
     const col = document.createElement('div'); col.className='bc';
-    const pair = document.createElement('div'); pair.className='bp';
-    const ih = Math.max(2,(incData[i]/maxVal)*100);
-    const eh = Math.max(2,(expData[i]/maxVal)*100);
+    const pair= document.createElement('div'); pair.className='bp';
+    const ih  = Math.max(2,(row.income /maxVal)*100);
+    const eh  = Math.max(2,(row.expense/maxVal)*100);
     pair.innerHTML = `
-      <div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(incData[i])}</div></div>
-      <div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(expData[i])}</div></div>`;
+      <div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div>
+      <div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>`;
     col.append(pair); barsEl.append(col);
-    const lbl = document.createElement('div'); lbl.className='xl'; lbl.textContent=m;
+    const lbl=document.createElement('div'); lbl.className='xl'; lbl.textContent=row.month;
     xlEl.append(lbl);
   });
 }
 
-/* ══════════════════════════════════════════
-   DONUT CHART HELPER
-══════════════════════════════════════════ */
-function renderDonut(svgId, totalId, legendId, expenseTxs) {
-  const svgEl   = document.getElementById(svgId);
-  const totalEl = document.getElementById(totalId);
-  const legEl   = document.getElementById(legendId);
+/* ══════════════════════════════════
+   DONUT CHART
+══════════════════════════════════ */
+function renderDonut(svgId, totalId, legendId, catRows) {
+  const svgEl  = document.getElementById(svgId);
+  const totEl  = document.getElementById(totalId);
+  const legEl  = document.getElementById(legendId);
   if (!svgEl) return;
 
-  // Group by category
-  const catMap = {};
-  expenseTxs.forEach(t => {
-    catMap[t.category] = (catMap[t.category]||0) + t.amount;
-  });
-  const total = Object.values(catMap).reduce((s,v)=>s+v,0);
-  if (totalEl) totalEl.textContent = fmtCurrency(total);
+  const total = catRows.reduce((s,r)=>s+r.total, 0);
+  if (totEl) totEl.textContent = fmtCurrency(total);
 
-  // Build SVG circles (donut)
-  const cats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
-  const circumference = 2 * Math.PI * 14; // r=14
-  let offset = 0;
-  const colorsArr = ['#7c5cfc','#9567f8','#b08cf6','#c9aaf5','#dfc8f4','#efe3f9','#38bdf8','#22c55e'];
-
-  // Keep existing base circle, rebuild segments
+  const C = 2 * Math.PI * 14; // circumference at r=14
   svgEl.innerHTML = `<circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" stroke-width="4.5"/>`;
   if (legEl) legEl.innerHTML = '';
 
@@ -1569,42 +1439,43 @@ function renderDonut(svgId, totalId, legendId, expenseTxs) {
     return;
   }
 
-  cats.forEach(([cat, amt], i) => {
-    const pct = amt / total;
-    const dash = pct * circumference;
-    const gap  = circumference - dash;
-    const color = CAT_COLORS[cat] || colorsArr[i % colorsArr.length];
+  const colorsArr = Object.values(CAT_COLORS);
+  let offset = 0;
+  catRows.forEach((row, i) => {
+    const pct  = row.total / total;
+    const dash = pct * C;
+    const color= CAT_COLORS[row.category] || colorsArr[i % colorsArr.length];
     const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
     circle.setAttribute('cx','18'); circle.setAttribute('cy','18'); circle.setAttribute('r','14');
     circle.setAttribute('fill','none'); circle.setAttribute('stroke',color); circle.setAttribute('stroke-width','4.5');
-    circle.setAttribute('stroke-dasharray',`${dash.toFixed(2)} ${gap.toFixed(2)}`);
+    circle.setAttribute('stroke-dasharray',`${dash.toFixed(2)} ${(C-dash).toFixed(2)}`);
     circle.setAttribute('stroke-dashoffset', (-offset).toFixed(2));
     svgEl.appendChild(circle);
     offset += dash;
-
     if (legEl) {
-      const row = document.createElement('div'); row.className='bli';
-      row.innerHTML = `<div class="bldot" style="background:${color}"></div><span class="blname">${cat}</span>`;
-      legEl.appendChild(row);
+      const row2=document.createElement('div'); row2.className='bli';
+      row2.innerHTML=`<div class="bldot" style="background:${color}"></div><span class="blname">${esc(row.category)}</span>`;
+      legEl.appendChild(row2);
     }
   });
 }
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    TRANSACTIONS PAGE
-══════════════════════════════════════════ */
-function renderTransactionsPage() {
-  updateTxBadge();
-  applyTxFilters();
+══════════════════════════════════ */
+async function renderTransactionsPage() {
+  invalidateCache(); // always fresh on page visit
+  await applyTxFilters();
 }
 
-function applyTxFilters() {
-  const search  = (document.getElementById('txSearch')?.value||'').toLowerCase();
-  const type    = document.getElementById('txTypeFilter')?.value||'';
-  const dateFrom= document.getElementById('txDateFrom')?.value||'';
-  const dateTo  = document.getElementById('txDateTo')?.value||'';
+async function applyTxFilters() {
+  const search   = (document.getElementById('txSearch')?.value||'').toLowerCase();
+  const type     = document.getElementById('txTypeFilter')?.value||'';
+  const dateFrom = document.getElementById('txDateFrom')?.value||'';
+  const dateTo   = document.getElementById('txDateTo')?.value||'';
 
-  let txs = loadTransactions().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let txs = await getTx();
+  txs = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
   if (search)   txs = txs.filter(t=>(t.note||'').toLowerCase().includes(search)||(t.category||'').toLowerCase().includes(search));
   if (type)     txs = txs.filter(t=>t.type===type);
@@ -1617,179 +1488,157 @@ function applyTxFilters() {
 
   if (txs.length === 0) {
     tbody.innerHTML = '';
-    if(empty) empty.style.display='block';
+    if (empty) empty.style.display='block';
   } else {
-    if(empty) empty.style.display='none';
+    if (empty) empty.style.display='none';
     tbody.innerHTML = txs.map(t => txRowHtml(t, true)).join('');
-    // Bind delete
-    tbody.querySelectorAll('.del-btn').forEach(btn => {
-      btn.addEventListener('click', () => deleteTransaction(btn.dataset.id));
-    });
+    tbody.querySelectorAll('.del-btn').forEach(btn =>
+      btn.addEventListener('click', () => deleteTransaction(btn.dataset.id)));
   }
-}
-
-function txRowHtml(t, showDelete) {
-  const isIncome = t.type === 'income';
-  const color = CAT_COLORS[t.category] || '#6b7280';
-  const iconBg = isIncome ? 'var(--green-bg)' : 'var(--red-bg)';
-  const iconStroke = isIncome ? 'var(--green-text)' : 'var(--red-text)';
-  const iconSvg = isIncome
-    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconStroke}" stroke-width="2.2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>`
-    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconStroke}" stroke-width="2.2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg>`;
-
-  const delBtn = showDelete
-    ? `<td><button class="del-btn" data-id="${t.id}" title="Delete">
-        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      </button></td>` : '';
-
-  return `<tr>
-    <td class="td-d" style="padding-left:20px;">${fmtDate(t.date)}</td>
-    <td class="${isIncome?'pos':'neg'}">${isIncome?'+':'−'}${fmtCurrency(t.amount)}</td>
-    <td><span class="txi" style="background:${iconBg};">${iconSvg}</span><span class="txn">${esc(t.note||t.category)}</span></td>
-    <td><span class="mchip"><svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>${esc(t.method)}</span></td>
-    <td><span class="cchip ${isIncome?'g':''}">${esc(t.category)}</span></td>
-    ${showDelete ? `<td><span class="cchip ${isIncome?'g':'r'}">${isIncome?'Income':'Expense'}</span></td>` : ''}
-    ${delBtn}
-  </tr>`;
+  updateTxBadge(txs.length);
 }
 
 async function deleteTransaction(id) {
   if (!confirm('Delete this transaction?')) return;
-  let refreshed = false;
-  if (await deleteTransactionApi(id)) {
-    const fresh = await tryFetchFromApi();
-    if (fresh) { saveTransactions(fresh); refreshed = true; }
+  try {
+    await API.del(`/api/transactions/${id}`);
+    invalidateCache();
+    await applyTxFilters();
+    await renderDashboard();
+    showToast('Transaction deleted.');
+  } catch(e) {
+    showToast('Delete failed: ' + e.message);
   }
-  if (!refreshed) {
-    const txs = loadTransactions().filter(t => t.id !== id);
-    saveTransactions(txs);
-  }
-  updateTxBadge();
-  applyTxFilters();
-  renderDashboard();
-  showToast('Transaction deleted.');
 }
 
-function updateTxBadge() {
-  const badge = document.getElementById('txBadge');
-  if (badge) badge.textContent = loadTransactions().length;
-}
-
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    ANALYTICS PAGE
-══════════════════════════════════════════ */
-function renderAnalyticsPage() {
-  const all = loadTransactions();
-  const inc = all.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const exp = all.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  const net = inc - exp;
+══════════════════════════════════ */
+async function renderAnalyticsPage() {
+  try {
+    const [txs, catBreak, flow] = await Promise.all([
+      getTx(),
+      API.get('/api/category-breakdown'),
+      API.get('/api/monthly-flow?months=6'),
+    ]);
+    const inc   = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const exp   = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const setT  = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+    setT('anTotalInc', fmtCurrency(inc));
+    setT('anTotalExp', fmtCurrency(exp));
+    setT('anNet',      fmtCurrency(inc-exp));
+    setT('anCount',    txs.length);
 
-  const setTxt = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  setTxt('anTotalInc', fmtCurrency(inc));
-  setTxt('anTotalExp', fmtCurrency(exp));
-  setTxt('anNet', fmtCurrency(net));
-  setTxt('anCount', all.length);
-
-  // Category bars
-  const catMap = {};
-  all.filter(t=>t.type==='expense').forEach(t=>{ catMap[t.category]=(catMap[t.category]||0)+t.amount; });
-  const cats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxCat = cats[0]?.[1] || 1;
-  const catBarsEl = document.getElementById('anCatBars');
-  if (catBarsEl) {
-    catBarsEl.innerHTML = cats.length ? cats.map(([cat,amt])=>{
-      const color = CAT_COLORS[cat]||'#6b7280';
+    // Category bars
+    const catEl = document.getElementById('anCatBars');
+    const maxC  = catBreak[0]?.total||1;
+    if (catEl) catEl.innerHTML = catBreak.slice(0,6).map(r=>{
+      const c=CAT_COLORS[r.category]||'#6b7280';
       return `<div class="cat-bar-row">
-        <div class="cat-bar-label">${esc(cat)}</div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(amt/maxCat*100).toFixed(1)}%;background:${color};"></div></div>
-        <div class="cat-bar-val">${fmtCurrency(amt)}</div>
+        <div class="cat-bar-label">${esc(r.category)}</div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(r.total/maxC*100).toFixed(1)}%;background:${c};"></div></div>
+        <div class="cat-bar-val">${fmtCurrency(r.total)}</div>
       </div>`;
-    }).join('') : '<div style="color:var(--text-2);font-size:13px;">No expense data yet.</div>';
-  }
+    }).join('') || '<div style="color:var(--text-2);font-size:13px;">No expense data yet.</div>';
 
-  // Monthly trend chart (last 6 months)
-  const anBarsEl = document.getElementById('anBars');
-  const anXlEl   = document.getElementById('anXL');
-  if (!anBarsEl) return;
-  anBarsEl.innerHTML=''; anXlEl.innerHTML='';
-  const now = new Date();
-  const mLabels=[], mInc=[], mExp=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const y=d.getFullYear(),m=d.getMonth();
-    mLabels.push(d.toLocaleString('en',{month:'short'}));
-    const mo=all.filter(t=>{const td=new Date(t.date);return td.getFullYear()===y&&td.getMonth()===m;});
-    mInc.push(mo.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0));
-    mExp.push(mo.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0));
-  }
-  const mMax=Math.max(...mInc,...mExp,1);
-  const anYt=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent='$'+fmtK(v);};
-  anYt('anYtMax',mMax);anYt('anYtMid',Math.round(mMax*.66));anYt('anYtLow',Math.round(mMax*.33));
-  mLabels.forEach((label,i)=>{
-    const col=document.createElement('div');col.className='bc';
-    const pair=document.createElement('div');pair.className='bp';
-    const ih=Math.max(2,(mInc[i]/mMax)*100);
-    const eh=Math.max(2,(mExp[i]/mMax)*100);
-    pair.innerHTML=`<div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(mInc[i])}</div></div><div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(mExp[i])}</div></div>`;
-    col.append(pair);anBarsEl.append(col);
-    const lbl=document.createElement('div');lbl.className='xl';lbl.textContent=label;anXlEl.append(lbl);
-  });
+    // Monthly chart
+    const anBarsEl = document.getElementById('anBars');
+    const anXlEl   = document.getElementById('anXL');
+    if (anBarsEl) {
+      anBarsEl.innerHTML=''; anXlEl.innerHTML='';
+      const mMax = Math.max(...flow.map(r=>Math.max(r.income,r.expense)),1);
+      const anYt=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent='$'+fmtK(v);};
+      anYt('anYtMax',mMax);anYt('anYtMid',Math.round(mMax*.66));anYt('anYtLow',Math.round(mMax*.33));
+      flow.forEach(row=>{
+        const col=document.createElement('div');col.className='bc';
+        const pair=document.createElement('div');pair.className='bp';
+        const ih=Math.max(2,(row.income/mMax)*100);
+        const eh=Math.max(2,(row.expense/mMax)*100);
+        pair.innerHTML=`<div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div><div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>`;
+        col.append(pair);anBarsEl.append(col);
+        const lbl=document.createElement('div');lbl.className='xl';lbl.textContent=row.month;anXlEl.append(lbl);
+      });
+    }
+  } catch(e) { console.error('analytics:', e); }
 }
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    BUDGET PAGE
-══════════════════════════════════════════ */
-function renderBudgetPage() {
-  const txs = loadTransactions().filter(t=>t.type==='expense');
-  const catMap = {};
-  txs.forEach(t=>{ catMap[t.category]=(catMap[t.category]||0)+t.amount; });
-  const total = Object.values(catMap).reduce((s,v)=>s+v,0);
-  const cats  = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
-  const colorsArr = Object.values(CAT_COLORS);
-
-  const listEl = document.getElementById('budgetCatList');
-  if (listEl) {
-    listEl.innerHTML = cats.length ? cats.map(([cat,amt],i)=>{
-      const color=CAT_COLORS[cat]||colorsArr[i%colorsArr.length];
-      const pct=total?(amt/total*100).toFixed(1):0;
-      return `<div class="budget-cat-row">
-        <div class="budget-cat-dot" style="background:${color}"></div>
-        <div class="budget-cat-name">${esc(cat)}</div>
-        <div class="budget-cat-bar-wrap"><div class="budget-cat-bar" style="width:${pct}%;background:${color};"></div></div>
-        <div class="budget-cat-amt">${fmtCurrency(amt)}</div>
-      </div>`;
-    }).join('') : '<div style="color:var(--text-2);font-size:13px;padding:12px 0;">No expense data yet.</div>';
-  }
-
-  renderDonut('budgetDonutSvg','budgetDonutTotal','budgetDonutLegend', txs);
+══════════════════════════════════ */
+async function renderBudgetPage() {
+  try {
+    const catBreak = await API.get('/api/category-breakdown');
+    const total    = catBreak.reduce((s,r)=>s+r.total,0);
+    const listEl   = document.getElementById('budgetCatList');
+    const colorsArr= Object.values(CAT_COLORS);
+    if (listEl) {
+      listEl.innerHTML = catBreak.length
+        ? catBreak.map((r,i)=>{
+            const c=CAT_COLORS[r.category]||colorsArr[i%colorsArr.length];
+            const pct=total?(r.total/total*100).toFixed(1):0;
+            return `<div class="budget-cat-row">
+              <div class="budget-cat-dot" style="background:${c}"></div>
+              <div class="budget-cat-name">${esc(r.category)}</div>
+              <div class="budget-cat-bar-wrap"><div class="budget-cat-bar" style="width:${pct}%;background:${c};"></div></div>
+              <div class="budget-cat-amt">${fmtCurrency(r.total)}</div>
+            </div>`;
+          }).join('')
+        : '<div style="color:var(--text-2);font-size:13px;padding:12px 0;">No expense data yet.</div>';
+    }
+    renderDonut('budgetDonutSvg','budgetDonutTotal','budgetDonutLegend', catBreak);
+  } catch(e) { console.error('budget:', e); }
 }
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    WALLET PAGE
-══════════════════════════════════════════ */
-function renderWalletPage() {
-  const all = loadTransactions();
-  const inc = all.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const exp = all.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  const walletBal = document.getElementById('walletMainBal');
-  if(walletBal) walletBal.textContent = fmtCurrency(inc-exp);
-
-  const tbody = document.getElementById('walletTxBody');
-  if (!tbody) return;
-  const sorted = [...all].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  tbody.innerHTML = sorted.slice(0,5).map(t=>txRowHtml(t,false)).join('');
+══════════════════════════════════ */
+async function renderWalletPage() {
+  try {
+    const txs = await getTx();
+    const inc  = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const exp  = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const el   = document.getElementById('walletMainBal');
+    if (el) el.textContent = fmtCurrency(inc-exp);
+    const tbody = document.getElementById('walletTxBody');
+    if (tbody) {
+      const sorted = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+      tbody.innerHTML = sorted.map(t=>txRowHtml(t,false)).join('');
+    }
+  } catch(e) { console.error('wallet:', e); }
 }
 
-/* ══════════════════════════════════════════
-   MODAL SYSTEM
-══════════════════════════════════════════ */
-let selectedType = 'income';
+/* ══════════════════════════════════
+   TX ROW HTML HELPER
+══════════════════════════════════ */
+function txRowHtml(t, showDelete) {
+  const isInc = t.type==='income';
+  const iconBg= isInc?'var(--green-bg)':'var(--red-bg)';
+  const iconSt= isInc?'var(--green-text)':'var(--red-text)';
+  const iconSvg= isInc
+    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>`
+    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg>`;
+  const delBtn = showDelete
+    ? `<td><button class="del-btn" data-id="${t.id}" title="Delete">
+        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button></td>` : '';
+  const typeTd = showDelete
+    ? `<td><span class="cchip ${isInc?'g':'r'}">${isInc?'Income':'Expense'}</span></td>` : '';
+  return `<tr>
+    <td class="td-d" style="padding-left:20px;">${fmtDate(t.date)}</td>
+    <td class="${isInc?'pos':'neg'}">${isInc?'+':'−'}${fmtCurrency(t.amount)}</td>
+    <td><span class="txi" style="background:${iconBg};">${iconSvg}</span><span class="txn">${esc(t.note||t.category)}</span></td>
+    <td><span class="mchip"><svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>${esc(t.method)}</span></td>
+    <td><span class="cchip ${isInc?'g':''}">${esc(t.category)}</span></td>
+    ${typeTd}${delBtn}
+  </tr>`;
+}
 
+/* ══════════════════════════════════
+   MODAL SYSTEM
+══════════════════════════════════ */
 function openModal() {
-  const modal = document.getElementById('txModal');
-  // Reset form
-  selectedType = 'income';
-  document.getElementById('typeBtnIncome').className='type-btn sel-income';
+  _selectedType = 'income';
+  document.getElementById('typeBtnIncome').className ='type-btn sel-income';
   document.getElementById('typeBtnExpense').className='type-btn';
   document.getElementById('fAmount').value='';
   document.getElementById('fAmount').classList.remove('err');
@@ -1800,11 +1649,10 @@ function openModal() {
   document.getElementById('fCustomCat').value='';
   document.getElementById('fCustomCatRow').style.display='none';
   document.getElementById('fMethod').value='Cash';
-  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fNote').value='';
-  modal.classList.add('open');
+  document.getElementById('txModal').classList.add('open');
 }
-
 function closeModal() {
   document.getElementById('txModal').classList.remove('open');
 }
@@ -1812,273 +1660,265 @@ function closeModal() {
 async function submitTransaction() {
   let valid = true;
   const amtRaw = parseFloat(document.getElementById('fAmount').value);
-  if (isNaN(amtRaw) || amtRaw <= 0) {
+  if (isNaN(amtRaw)||amtRaw<=0) {
     document.getElementById('fAmount').classList.add('err');
     document.getElementById('fAmountErr').classList.add('show');
-    valid = false;
+    valid=false;
   } else {
     document.getElementById('fAmount').classList.remove('err');
     document.getElementById('fAmountErr').classList.remove('show');
   }
-
   let cat = document.getElementById('fCategory').value;
   if (!cat) {
     document.getElementById('fCategory').classList.add('err');
     document.getElementById('fCategoryErr').classList.add('show');
-    valid = false;
+    valid=false;
   } else {
     document.getElementById('fCategory').classList.remove('err');
     document.getElementById('fCategoryErr').classList.remove('show');
-    if (cat === 'Other') {
-      const custom = document.getElementById('fCustomCat').value.trim();
-      if (custom) cat = custom;
-    }
+    if (cat==='Other') { const c=document.getElementById('fCustomCat').value.trim(); if(c) cat=c; }
   }
-
   if (!valid) return;
 
-  const tx = {
-    id:     uid(),
-    type:   selectedType,
-    amount: amtRaw,
-    category: cat,
-    method: document.getElementById('fMethod').value,
-    date:   document.getElementById('fDate').value,
-    note:   document.getElementById('fNote').value.trim(),
-  };
-
-  const txs = loadTransactions();
-  txs.push(tx);
-  saveTransactions(txs);
-  if (await pushTransactionApi(tx)) {
-    const fresh = await tryFetchFromApi();
-    if (fresh) saveTransactions(fresh);
+  const btn = document.getElementById('modalSubmitBtn');
+  btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    await API.post('/api/transactions', {
+      type: _selectedType,
+      amount: amtRaw,
+      category: cat,
+      method: document.getElementById('fMethod').value,
+      date:   document.getElementById('fDate').value,
+      note:   document.getElementById('fNote').value.trim(),
+    });
+    invalidateCache();
+    closeModal();
+    await renderDashboard();
+    const txPage=document.querySelector('.page[data-page="transactions"]');
+    if (txPage&&txPage.classList.contains('active')) await renderTransactionsPage();
+    showToast(`${_selectedType==='income'?'Income':'Expense'} saved! 🎉`);
+  } catch(e) {
+    showToast('Error: '+e.message);
+  } finally {
+    btn.textContent='Save transaction'; btn.disabled=false;
   }
-
-  closeModal();
-  updateTxBadge();
-  renderDashboard();
-  // If on transactions page, refresh it
-  const txPage = document.querySelector('.page[data-page="transactions"]');
-  if (txPage && txPage.classList.contains('active')) renderTransactionsPage();
-
-  showToast(`${selectedType==='income'?'Income':'Expense'} of ${fmtCurrency(amtRaw)} saved!`);
 }
 
-/* ══════════════════════════════════════════
-   TOAST
-══════════════════════════════════════════ */
-function showToast(msg, duration=2800) {
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.textContent = msg;
-  document.getElementById('toastContainer').appendChild(el);
-  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 300); }, duration);
-}
-
-/* ══════════════════════════════════════════
-   THEME TOGGLE (shared logic)
-══════════════════════════════════════════ */
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const label = theme==='dark' ? 'Dark mode' : 'Light mode';
-  const lbl1 = document.getElementById('themeLabel');
-  const lbl2 = document.getElementById('themeLabel2');
-  if(lbl1) lbl1.textContent = label;
-  if(lbl2) lbl2.textContent = label;
-  localStorage.setItem(LS_THEME, theme);
-}
-
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    SETTINGS: EXPORT / IMPORT / RESET
-══════════════════════════════════════════ */
-function exportData() {
-  const data = { transactions: loadTransactions(), exportedAt: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'finset-transactions.json';
-  a.click();
+══════════════════════════════════ */
+async function exportData() {
+  const txs  = await getTx();
+  const blob = new Blob([JSON.stringify({transactions:txs, exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob); a.download='finset-transactions.json'; a.click();
   showToast('Export downloaded!');
 }
 
-function importData(file) {
+async function importData(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const obj = JSON.parse(e.target.result);
-      const txs = obj.transactions || (Array.isArray(obj) ? obj : null);
-      if (!txs || !Array.isArray(txs)) throw new Error('Invalid format');
-      // Validate each tx
-      const valid = txs.every(t => t.id && t.type && t.amount && t.date);
-      if (!valid) throw new Error('Invalid transaction structure');
-      saveTransactions(txs);
-      updateTxBadge();
-      renderDashboard();
-      showToast(`Imported ${txs.length} transactions!`);
-    } catch(err) {
-      showToast('Import failed: ' + err.message);
-    }
+      const txs = obj.transactions||(Array.isArray(obj)?obj:null);
+      if (!txs||!Array.isArray(txs)) throw new Error('Expected {transactions:[…]}');
+      const res = await API.post('/api/import', {transactions:txs});
+      invalidateCache();
+      await renderDashboard();
+      showToast(`Imported ${res.inserted} new, skipped ${res.skipped} duplicates.`);
+    } catch(err) { showToast('Import failed: '+err.message); }
   };
   reader.readAsText(file);
 }
 
-function resetDemo() {
-  if (!confirm('Reset all data to demo? This will delete your existing transactions.')) return;
-  localStorage.removeItem(LS_TX);
-  localStorage.removeItem(LS_SEEDED);
-  saveTransactions(getDemoData());
-  localStorage.setItem(LS_SEEDED,'1');
-  updateTxBadge();
-  renderDashboard();
-  showToast('Demo data loaded!');
+/* ══════════════════════════════════
+   THEME
+══════════════════════════════════ */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme',t);
+  const l=t==='dark'?'Dark mode':'Light mode';
+  ['themeLabel','themeLabel2'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=l;});
+  localStorage.setItem(LS_THEME,t);
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light');
 }
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════
    SIDEBAR COLLAPSE
-══════════════════════════════════════════ */
-function setSidebarCollapsed(collapsed) {
-  const sidebar = document.getElementById('sidebar');
-  sidebar.classList.toggle('collapsed', collapsed);
-  localStorage.setItem(LS_SIDEBAR, collapsed ? '1' : '0');
+══════════════════════════════════ */
+function setSidebarCollapsed(c) {
+  document.getElementById('sidebar').classList.toggle('collapsed',c);
+  localStorage.setItem(LS_SIDEBAR,c?'1':'0');
 }
 
-/* ══════════════════════════════════════════
-   FORMAT HELPERS
-══════════════════════════════════════════ */
+/* ══════════════════════════════════
+   TOAST
+══════════════════════════════════ */
+function showToast(msg,dur=3000) {
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),300);},dur);
+}
+
+/* ══════════════════════════════════
+   HELPERS
+══════════════════════════════════ */
 function fmtCurrency(n) {
-  return '$' + Math.abs(n).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return '$'+Math.abs(n).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
-function fmtK(n) {
-  if (n >= 1000) return (n/1000).toFixed(0)+'k';
-  return n.toString();
-}
-function fmtDate(s) {
-  if (!s) return '';
-  const d = new Date(s+'T12:00:00');
+function fmtK(n){ return n>=1000?(n/1000).toFixed(0)+'k':Math.round(n).toString(); }
+function fmtDate(s){
+  if(!s) return '';
+  const d=new Date(s+'T12:00:00');
   return d.toLocaleDateString('en',{day:'2-digit',month:'short',year:'numeric'});
 }
-function esc(s) {
+function esc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function animateProgressBars() {
-  document.querySelectorAll('.prog-f[data-w]').forEach(b => {
-    const w = b.dataset.w;
-    if (b.style.width === '0%' || b.style.width === '') {
-      requestAnimationFrame(() => { b.style.width = w + '%'; });
-    }
+function animateProgressBars(){
+  document.querySelectorAll('.prog-f[data-w]').forEach(b=>{
+    if(b.style.width==='0%'||!b.style.width) requestAnimationFrame(()=>{b.style.width=b.dataset.w+'%';});
   });
 }
+function updateTxBadge(n){
+  const el=document.getElementById('txBadge'); if(el) el.textContent=n;
+}
+function showPageSpinner(containerId) {
+  const el=document.getElementById(containerId);
+  if(el) el.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-2);font-size:12px;">Loading…</div>`;
+}
+function showError(containerId, msg) {
+  const el=document.getElementById(containerId);
+  if(el) el.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--red-text);font-size:12px;">⚠ ${esc(msg)}</div>`;
+}
 
-/* ══════════════════════════════════════════
-   EVENT LISTENERS
-══════════════════════════════════════════ */
+/* ══════════════════════════════════
+   BOOT — bind all events once
+══════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ── SIDEBAR COLLAPSE ──
-  const sidebar = document.getElementById('sidebar');
+  // Sidebar collapse
+  const sidebar     = document.getElementById('sidebar');
   const collapseBtn = document.getElementById('collapseBtn');
-  const savedCollapse = localStorage.getItem(LS_SIDEBAR);
-  if (savedCollapse === '1') sidebar.classList.add('collapsed');
+  if (localStorage.getItem(LS_SIDEBAR)==='1') sidebar.classList.add('collapsed');
+  collapseBtn.addEventListener('click', ()=>setSidebarCollapsed(!sidebar.classList.contains('collapsed')));
 
-  collapseBtn.addEventListener('click', () => {
-    setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
+  // Nav routing
+  document.getElementById('mainNav').addEventListener('click', e=>{
+    const item=e.target.closest('[data-page]');
+    if(item) setActivePage(item.dataset.page);
   });
 
-  // ── NAV ROUTING ──
-  document.getElementById('mainNav').addEventListener('click', e => {
-    const item = e.target.closest('[data-page]');
-    if (item) setActivePage(item.dataset.page);
-  });
+  // Period pills
+  document.querySelectorAll('.pill[data-period]').forEach(p=>p.addEventListener('click',()=>{
+    document.querySelectorAll('.pill[data-period]').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+    _activePeriod=p.dataset.period;
+    getTx().then(txs=>renderDashStats(txs));
+  }));
 
-  // ── PERIOD PILLS ──
-  document.querySelectorAll('.pill[data-period]').forEach(p => {
-    p.addEventListener('click', () => {
-      document.querySelectorAll('.pill[data-period]').forEach(x=>x.classList.remove('active'));
-      p.classList.add('active');
-      activePeriod = p.dataset.period;
-      renderDashboard();
-    });
-  });
-
-  // ── ADD TX BUTTONS ──
+  // Add transaction buttons
   document.getElementById('addTxBtnDash').addEventListener('click', openModal);
   document.getElementById('addTxBtnTx').addEventListener('click', openModal);
 
-  // ── SEE ALL ──
-  document.getElementById('seeAllBtn').addEventListener('click', () => setActivePage('transactions'));
+  // See all
+  document.getElementById('seeAllBtn').addEventListener('click', ()=>setActivePage('transactions'));
 
-  // ── MODAL CLOSE ──
+  // Modal
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
-  document.getElementById('txModal').addEventListener('click', e => {
-    if (e.target === document.getElementById('txModal')) closeModal();
+  document.getElementById('txModal').addEventListener('click', e=>{
+    if(e.target===document.getElementById('txModal')) closeModal();
   });
-
-  // ── MODAL SUBMIT ──
   document.getElementById('modalSubmitBtn').addEventListener('click', submitTransaction);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-  // ── TYPE TOGGLE ──
-  document.getElementById('typeBtnIncome').addEventListener('click', () => {
-    selectedType='income';
-    document.getElementById('typeBtnIncome').className='type-btn sel-income';
+  // Type toggle
+  document.getElementById('typeBtnIncome').addEventListener('click',()=>{
+    _selectedType='income';
+    document.getElementById('typeBtnIncome').className ='type-btn sel-income';
     document.getElementById('typeBtnExpense').className='type-btn';
   });
-  document.getElementById('typeBtnExpense').addEventListener('click', () => {
-    selectedType='expense';
-    document.getElementById('typeBtnIncome').className='type-btn';
+  document.getElementById('typeBtnExpense').addEventListener('click',()=>{
+    _selectedType='expense';
+    document.getElementById('typeBtnIncome').className ='type-btn';
     document.getElementById('typeBtnExpense').className='type-btn sel-expense';
   });
 
-  // ── CUSTOM CATEGORY ──
-  document.getElementById('fCategory').addEventListener('change', e => {
-    document.getElementById('fCustomCatRow').style.display = e.target.value==='Other'?'block':'none';
+  // Custom category
+  document.getElementById('fCategory').addEventListener('change', e=>{
+    document.getElementById('fCustomCatRow').style.display=e.target.value==='Other'?'block':'none';
   });
 
-  // ── TX FILTERS ──
-  ['txSearch','txTypeFilter','txDateFrom','txDateTo'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', applyTxFilters);
-    document.getElementById(id)?.addEventListener('change', applyTxFilters);
+  // Tx page filters
+  ['txSearch','txTypeFilter','txDateFrom','txDateTo'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.addEventListener('input',  applyTxFilters);
+      el.addEventListener('change', applyTxFilters);
+    }
   });
 
-  // ── THEME TOGGLES (both sidebar and settings) ──
-  function toggleTheme() {
-    const next = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
-    applyTheme(next);
-  }
-  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  // Theme
+  document.getElementById('themeToggle').addEventListener('click',  toggleTheme);
   document.getElementById('themeToggle2').addEventListener('click', toggleTheme);
 
-  // ── SETTINGS ──
+  // Settings
   document.getElementById('exportBtn').addEventListener('click', exportData);
-  document.getElementById('importFile').addEventListener('change', e => importData(e.target.files[0]));
-  document.getElementById('resetDemoBtn').addEventListener('click', resetDemo);
-
-  // ── KEYBOARD: ESC closes modal ──
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
+  document.getElementById('importFile').addEventListener('change', e=>importData(e.target.files[0]));
+  document.getElementById('resetDemoBtn').addEventListener('click', async ()=>{
+    if(!confirm('This will wipe all data and reload demo transactions. Continue?')) return;
+    // Call API import with demo data
+    const demo = getDemoTransactions();
+    try {
+      // First clear: delete all, then bulk insert
+      const txs = await API.get('/api/transactions');
+      await Promise.all(txs.map(t=>API.del('/api/transactions/'+t.id)));
+      await API.post('/api/import', {transactions:demo});
+      invalidateCache();
+      await renderDashboard();
+      showToast('Demo data loaded!');
+    } catch(e) { showToast('Reset failed: '+e.message); }
   });
 
-  // ── INIT THEME ──
-  const savedTheme = localStorage.getItem(LS_THEME) || 'light';
-  applyTheme(savedTheme);
+  // Apply saved theme
+  applyTheme(localStorage.getItem(LS_THEME)||'light');
 
-  // ── DATA SYNC THEN INIT PAGE ──
-  (async () => {
-    const apiData = await tryFetchFromApi();
-    if (apiData === null && txCache.length === 0) {
-      saveTransactions(getDemoData());
-    }
-    updateTxBadge();
-
-    const hashPage = location.hash.slice(1);
-    const storedPage = localStorage.getItem(LS_PAGE) || 'dashboard';
-    const initPage = PAGES.includes(hashPage) ? hashPage : storedPage;
-    setActivePage(initPage);
-    history.replaceState({page:initPage}, '', '#' + initPage);
-  })();
+  // Init page from hash or storage
+  const hashPage   = location.hash.slice(1);
+  const storedPage = localStorage.getItem(LS_PAGE)||'dashboard';
+  const initPage   = PAGES.includes(hashPage)?hashPage:storedPage;
+  history.replaceState({page:initPage},'','#'+initPage);
+  setActivePage(initPage);
 });
+
+/* ══════════════════════════════════
+   DEMO DATA (used by "Reset demo" button)
+══════════════════════════════════ */
+function getDemoTransactions() {
+  const now = new Date();
+  const d = offset => { const dt=new Date(now); dt.setDate(dt.getDate()-offset); return dt.toISOString().split('T')[0]; };
+  const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  return [
+    {id:uid(),type:'income', amount:3200, category:'Salary',       method:'Transfer',date:d(1), note:'Monthly salary',       created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:80,   category:'Food',         method:'Card',    date:d(2), note:'Yaposhka restaurant',  created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:150,  category:'Shopping',     method:'Card',    date:d(3), note:'Reserved item',        created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:13,   category:'Entertainment',method:'Card',    date:d(3), note:'YouTube Premium',      created_at:new Date().toISOString()},
+    {id:uid(),type:'income', amount:800,  category:'Freelance',    method:'Transfer',date:d(5), note:'Design project',       created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:120,  category:'Bills',        method:'Transfer',date:d(6), note:'Electricity',          created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:55,   category:'Transport',    method:'Cash',    date:d(8), note:'Taxi',                 created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:200,  category:'Health',       method:'Card',    date:d(10),note:'Pharmacy',             created_at:new Date().toISOString()},
+    {id:uid(),type:'income', amount:500,  category:'Investment',   method:'Transfer',date:d(12),note:'Dividends',            created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:90,   category:'Food',         method:'Cash',    date:d(14),note:'Groceries',            created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:35,   category:'Education',    method:'Card',    date:d(16),note:'Online course',        created_at:new Date().toISOString()},
+    {id:uid(),type:'income', amount:1200, category:'Freelance',    method:'Transfer',date:d(20),note:'Web project',          created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:75,   category:'Entertainment',method:'Card',    date:d(22),note:'Netflix + Spotify',    created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:300,  category:'Shopping',     method:'Card',    date:d(25),note:'Clothes',              created_at:new Date().toISOString()},
+    {id:uid(),type:'expense',amount:60,   category:'Transport',    method:'Card',    date:d(28),note:'Fuel',                 created_at:new Date().toISOString()},
+  ];
+}
 </script>
 </body>
 </html>
