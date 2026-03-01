@@ -16,7 +16,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// go:embed static/index.html static/.gitkeep
+//go:embed ../static/*
 var staticFiles embed.FS
 
 func main() {
@@ -76,7 +76,7 @@ func main() {
 	// ── Static frontend (SPA) ─────────────────────────────
 	// Serve everything in the embedded static/ folder.
 	// Any route that isn't /api/* falls through to index.html.
-	staticFS, err := fs.Sub(staticFiles, "static")
+	staticFS, err := fs.Sub(staticFiles, "../static")
 	if err != nil {
 		log.Fatalf("embed static: %v", err)
 	}
