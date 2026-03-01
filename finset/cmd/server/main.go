@@ -16,7 +16,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static/*
+// go:embed static/index.html static/.gitkeep
 var staticFiles embed.FS
 
 func main() {
@@ -60,17 +60,17 @@ func main() {
 
 	// ── API routes ────────────────────────────────────────
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/health",              h.Health)
-		r.Get("/stats",               h.GetStats)
-		r.Get("/monthly-flow",        h.GetMonthlyFlow)
-		r.Get("/category-breakdown",  h.GetCategoryBreakdown)
+		r.Get("/health", h.Health)
+		r.Get("/stats", h.GetStats)
+		r.Get("/monthly-flow", h.GetMonthlyFlow)
+		r.Get("/category-breakdown", h.GetCategoryBreakdown)
 
-		r.Get("/transactions",        h.ListTransactions)
-		r.Post("/transactions",       h.CreateTransaction)
-		r.Get("/transactions/{id}",   h.GetTransaction)
-		r.Delete("/transactions/{id}",h.DeleteTransaction)
+		r.Get("/transactions", h.ListTransactions)
+		r.Post("/transactions", h.CreateTransaction)
+		r.Get("/transactions/{id}", h.GetTransaction)
+		r.Delete("/transactions/{id}", h.DeleteTransaction)
 
-		r.Post("/import",             h.ImportTransactions)
+		r.Post("/import", h.ImportTransactions)
 	})
 
 	// ── Static frontend (SPA) ─────────────────────────────
