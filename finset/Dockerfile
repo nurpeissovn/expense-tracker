@@ -4,33 +4,30 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
 # Install git (required by go mod tidy)
-RUN apk --no-cache add git
+RUN apk --no-cache add git ca-certificates
 
-# Copy go.mod only — then download deps (no go.sum yet so no checksum errors)
-COPY go.mod ./
+# Copy go.mod then download deps
+COPY go.mod .
 RUN go mod download
 
-# Copy all source files
+# Copy source
 COPY . .
 
-# Make static assets available adjacent to cmd/server for go:embed static/*
+# Ensure static assets are colocated for go:embed static/*
 RUN mkdir -p cmd/server/static && cp -r static/* cmd/server/static/ || true
 
-# Regenerate go.sum with correct real checksums (fixes any mismatch from local go.sum)
+# Recreate go.sum (to avoid checksum mismatches)
 RUN rm -f go.sum && go mod tidy
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
-    -o /finset \
-    ./cmd/server
+# Build
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /finset ./cmd/server
 
-# ── Runtime stage ───────────────────────────
+# ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM gcr.io/distroless/base-debian12:nonroot
-COPY --from=builder /finset /app/finset
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/  # ensure TLS works
 
 WORKDIR /app
+COPY --from=builder /finset /app/finset
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 EXPOSE 8080
 ENTRYPOINT ["/app/finset"]
-
