@@ -75,6 +75,7 @@ func (p *Pool) Migrate() error {
 		return fmt.Errorf("create transactions table: %w", err)
 	}
 
+	// Safe: only adds columns if missing, never touches existing data
 	addCols := []string{
 		`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS category   TEXT        NOT NULL DEFAULT ''`,
 		`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS method     TEXT        NOT NULL DEFAULT 'Cash'`,
@@ -100,20 +101,32 @@ func (p *Pool) Migrate() error {
 
 func (p *Pool) ListTransactions(ctx context.Context) ([]models.Transaction, error) {
 	rows, err := p.Query(ctx, `
-		SELECT id, type, amount, category, method, TO_CHAR(date,'YYYY-MM-DD'), note, created_at
+		SELECT
+			id,
+			type,
+			amount::float8,
+			COALESCE(category, '')   AS category,
+			COALESCE(method, 'Cash') AS method,
+			TO_CHAR(date, 'YYYY-MM-DD') AS date,
+			COALESCE(note, '')       AS note,
+			COALESCE(created_at, NOW()) AS created_at
 		FROM transactions
 		ORDER BY date DESC, created_at DESC
 	`)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
 	var txs []models.Transaction
 	for rows.Next() {
 		var t models.Transaction
-		if err := rows.Scan(&t.ID, &t.Type, &t.Amount, &t.Category, &t.Method, &t.Date, &t.Note, &t.CreatedAt); err != nil {
-			return nil, err
+		if err := rows.Scan(
+			&t.ID, &t.Type, &t.Amount,
+			&t.Category, &t.Method, &t.Date,
+			&t.Note, &t.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		txs = append(txs, t)
 	}
@@ -126,11 +139,19 @@ func (p *Pool) ListTransactions(ctx context.Context) ([]models.Transaction, erro
 func (p *Pool) GetTransaction(ctx context.Context, id string) (*models.Transaction, error) {
 	var t models.Transaction
 	err := p.QueryRow(ctx, `
-		SELECT id, type, amount, category, method, TO_CHAR(date,'YYYY-MM-DD'), note, created_at
+		SELECT
+			id, type, amount::float8,
+			COALESCE(category, ''), COALESCE(method, 'Cash'),
+			TO_CHAR(date, 'YYYY-MM-DD'),
+			COALESCE(note, ''), COALESCE(created_at, NOW())
 		FROM transactions WHERE id = $1
-	`, id).Scan(&t.ID, &t.Type, &t.Amount, &t.Category, &t.Method, &t.Date, &t.Note, &t.CreatedAt)
+	`, id).Scan(
+		&t.ID, &t.Type, &t.Amount,
+		&t.Category, &t.Method, &t.Date,
+		&t.Note, &t.CreatedAt,
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query: %w", err)
 	}
 	return &t, nil
 }
@@ -139,12 +160,19 @@ func (p *Pool) CreateTransaction(ctx context.Context, id string, r models.Create
 	var t models.Transaction
 	err := p.QueryRow(ctx, `
 		INSERT INTO transactions (id, type, amount, category, method, date, note)
-		VALUES ($1, $2, $3, $4, $5, $6::DATE, $7)
-		RETURNING id, type, amount, category, method, TO_CHAR(date,'YYYY-MM-DD'), note, created_at
-	`, id, r.Type, r.Amount, r.Category, r.Method, r.Date, r.Note).
-		Scan(&t.ID, &t.Type, &t.Amount, &t.Category, &t.Method, &t.Date, &t.Note, &t.CreatedAt)
+		VALUES ($1, $2, $3::NUMERIC, $4, $5, $6::DATE, $7)
+		RETURNING
+			id, type, amount::float8,
+			COALESCE(category, ''), COALESCE(method, 'Cash'),
+			TO_CHAR(date, 'YYYY-MM-DD'),
+			COALESCE(note, ''), created_at
+	`, id, r.Type, r.Amount, r.Category, r.Method, r.Date, r.Note).Scan(
+		&t.ID, &t.Type, &t.Amount,
+		&t.Category, &t.Method, &t.Date,
+		&t.Note, &t.CreatedAt,
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("insert: %w", err)
 	}
 	return &t, nil
 }
@@ -166,13 +194,16 @@ func (p *Pool) BulkInsert(ctx context.Context, txs []models.Transaction) (int, e
 
 	var inserted int
 	for _, t := range txs {
+		if t.CreatedAt.IsZero() {
+			t.CreatedAt = time.Now()
+		}
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO transactions (id, type, amount, category, method, date, note, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6::DATE, $7, $8)
+			VALUES ($1, $2, $3::NUMERIC, $4, $5, $6::DATE, $7, $8)
 			ON CONFLICT (id) DO NOTHING
 		`, t.ID, t.Type, t.Amount, t.Category, t.Method, t.Date, t.Note, t.CreatedAt)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("bulk insert row: %w", err)
 		}
 		inserted += int(tag.RowsAffected())
 	}
@@ -190,9 +221,9 @@ func (p *Pool) GetStats(ctx context.Context) (Stats, error) {
 	var s Stats
 	err := p.QueryRow(ctx, `
 		SELECT
-			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0),
-			COUNT(*)
+			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0)::float8,
+			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0)::float8,
+			COUNT(*)::int
 		FROM transactions
 	`).Scan(&s.TotalIncome, &s.TotalExpense, &s.Count)
 	s.Balance = s.TotalIncome - s.TotalExpense
@@ -206,34 +237,27 @@ type MonthlyRow struct {
 	Expense float64 `json:"expense"`
 }
 
-// GetMonthlyFlow returns per-month totals for the last N months.
-// Uses fmt.Sprintf to inline the months value — avoids pgx parameter
-// type casting issues with INTERVAL arithmetic.
 func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, error) {
-	if months < 1 {
-		months = 7
-	}
-	if months > 24 {
-		months = 24
-	}
+	if months < 1 { months = 7 }
+	if months > 24 { months = 24 }
 
-	// Build the cutoff date in Go — no $1 in INTERVAL expression
-	cutoff := time.Now().AddDate(0, -(months - 1), 0)
+	// Compute cutoff in Go to avoid pgx INTERVAL parameter issues
+	cutoff := time.Now().AddDate(0, -(months-1), 0)
 	cutoffStr := fmt.Sprintf("%d-%02d-01", cutoff.Year(), cutoff.Month())
 
 	rows, err := p.Query(ctx, `
 		SELECT
-			TO_CHAR(DATE_TRUNC('month', date), 'Mon')  AS month,
-			EXTRACT(YEAR FROM date)::INT               AS year,
-			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0) AS income,
-			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0) AS expense
+			TO_CHAR(DATE_TRUNC('month', date), 'Mon')           AS month,
+			EXTRACT(YEAR FROM date)::int                        AS year,
+			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0)::float8 AS income,
+			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0)::float8 AS expense
 		FROM transactions
 		WHERE date >= $1::DATE
 		GROUP BY DATE_TRUNC('month', date)
 		ORDER BY DATE_TRUNC('month', date) ASC
 	`, cutoffStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
@@ -241,7 +265,7 @@ func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, er
 	for rows.Next() {
 		var r MonthlyRow
 		if err := rows.Scan(&r.Month, &r.Year, &r.Income, &r.Expense); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		result = append(result, r)
 	}
@@ -258,14 +282,16 @@ type CategoryRow struct {
 
 func (p *Pool) GetCategoryBreakdown(ctx context.Context) ([]CategoryRow, error) {
 	rows, err := p.Query(ctx, `
-		SELECT category, SUM(amount) AS total
+		SELECT
+			COALESCE(category, 'Other') AS category,
+			SUM(amount)::float8         AS total
 		FROM transactions
 		WHERE type = 'expense'
 		GROUP BY category
 		ORDER BY total DESC
 	`)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
@@ -273,7 +299,7 @@ func (p *Pool) GetCategoryBreakdown(ctx context.Context) ([]CategoryRow, error) 
 	for rows.Next() {
 		var r CategoryRow
 		if err := rows.Scan(&r.Category, &r.Total); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		result = append(result, r)
 	}
