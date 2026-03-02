@@ -232,30 +232,38 @@ func (p *Pool) GetStats(ctx context.Context) (Stats, error) {
 
 type MonthlyRow struct {
 	Month   string  `json:"month"`
-	Year    int     `json:"year"`
+	Year    string  `json:"year"`
 	Income  float64 `json:"income"`
 	Expense float64 `json:"expense"`
 }
 
 func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, error) {
-	if months < 1 { months = 7 }
-	if months > 24 { months = 24 }
+	if months < 1 {
+		months = 7
+	}
+	if months > 24 {
+		months = 24
+	}
 
-	// Compute cutoff in Go to avoid pgx INTERVAL parameter issues
+	// Build date string in Go — no pgx parameter type issues
 	cutoff := time.Now().AddDate(0, -(months-1), 0)
-	cutoffStr := fmt.Sprintf("%d-%02d-01", cutoff.Year(), cutoff.Month())
-
-	rows, err := p.Query(ctx, `
+	// Inline the date directly into SQL to avoid any casting ambiguity
+	sql := fmt.Sprintf(`
 		SELECT
-			TO_CHAR(DATE_TRUNC('month', date), 'Mon')           AS month,
-			EXTRACT(YEAR FROM date)::int                        AS year,
+			TO_CHAR(m, 'Mon')  AS month,
+			TO_CHAR(m, 'YYYY') AS year,
 			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0)::float8 AS income,
 			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0)::float8 AS expense
-		FROM transactions
-		WHERE date >= $1::DATE
-		GROUP BY DATE_TRUNC('month', date)
-		ORDER BY DATE_TRUNC('month', date) ASC
-	`, cutoffStr)
+		FROM (
+			SELECT type, amount, DATE_TRUNC('month', date) AS m
+			FROM transactions
+			WHERE date >= '%d-%02d-01'::DATE
+		) sub
+		GROUP BY m
+		ORDER BY m ASC
+	`, cutoff.Year(), int(cutoff.Month()))
+
+	rows, err := p.Query(ctx, sql)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
