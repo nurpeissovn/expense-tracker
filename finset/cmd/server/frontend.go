@@ -683,6 +683,23 @@ input[type="date"].filter-sel { color:var(--text-1); }
   to   { opacity:1; transform:translateY(0); }
 }
 .anim { animation:fadeUp .4s ease both; }
+
+/* ── Analytics redesign ─────────────────────────── */
+.an-stat-card { padding: 18px 20px; }
+.an-card-label { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.an-currency-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-2); }
+.an-big-val { font-family: 'DM Mono', monospace; font-size: 30px; font-weight: 700; color: var(--text-1); margin: 8px 0 6px; line-height: 1; }
+.an-big-val .an-cents { font-size: 18px; color: var(--text-2); }
+.an-card-meta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.an-change { font-size: 12px; font-weight: 600; }
+.an-change.pos { color: var(--green-text); }
+.an-change.neg { color: var(--red-text); }
+.an-tx-count { font-size: 12px; color: var(--text-2); }
+.an-card-sub { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+.an-cat-count { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+@media (max-width: 900px) {
+  .an-charts-row { grid-template-columns: 1fr !important; }
+}
 </style>
 </head>
 <body>
@@ -1096,34 +1113,125 @@ input[type="date"].filter-sel { color:var(--text-1); }
 
   <!-- ─────────────── ANALYTICS PAGE ─────────────── -->
   <section class="page" data-page="analytics">
-    <div class="page-header">
-      <div><h1>Analytics</h1><p>Insights into your financial habits.</p></div>
+    <div class="page-header" style="flex-wrap:wrap;gap:10px;">
+      <div>
+        <h1>Analytics</h1>
+        <p>Detailed overview of your financial situation</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="pill active" id="anPeriodMonth" data-anperiod="month" style="padding:6px 14px;">This month</button>
+        <button class="pill" id="anPeriodAll" data-anperiod="all" style="padding:6px 14px;">All time</button>
+        <button class="btn-outline" id="anExportCsv" style="padding:6px 12px;font-size:12px;">
+          <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
     </div>
     <div class="page-body">
-      <div class="analytics-grid">
-        <div class="stat-pill anim"><h4>Total income (all time)</h4><div class="big pos" id="anTotalInc">$0</div></div>
-        <div class="stat-pill anim"><h4>Total expenses (all time)</h4><div class="big neg" id="anTotalExp">$0</div></div>
-        <div class="stat-pill anim"><h4>Net balance</h4><div class="big" id="anNet">$0</div></div>
-        <div class="stat-pill anim"><h4>Transactions count</h4><div class="big" id="anCount">0</div></div>
-        <div class="card analytics-wide anim">
-          <div class="card-hd"><h3>Top expense categories</h3></div>
-          <div class="cat-bars" id="anCatBars"></div>
-        </div>
-        <div class="card analytics-wide anim">
-          <div class="card-hd"><h3>Monthly trend (last 6 months)</h3></div>
-          <div class="chart-wrap" style="height:160px;">
-            <div class="chart-y" id="anChartY">
-              <span class="yt" id="anYtMax"></span>
-              <span class="yt" id="anYtMid"></span>
-              <span class="yt" id="anYtLow"></span>
-              <span class="yt">$0</span>
-            </div>
-            <div class="chart-grid"><div class="gl"></div><div class="gl"></div><div class="gl"></div><div class="gl"></div></div>
-            <div class="chart-bars" id="anBars"></div>
-            <div class="chart-xl"  id="anXL"></div>
+
+      <!-- Top stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:16px;">
+        <div class="card an-stat-card" id="anCardBalance">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div class="an-card-label">Total balance</div>
+            <span class="an-currency-badge">USD</span>
           </div>
+          <div class="an-big-val" id="anTotalBal">$0<span class="an-cents">.00</span></div>
+          <div class="an-card-meta">
+            <span class="an-change pos" id="anBalChange"></span>
+            <span class="an-tx-count" id="anBalTx"></span>
+          </div>
+          <div class="an-card-sub" id="anBalSub"></div>
+          <div class="an-cat-count" id="anBalCats"></div>
+        </div>
+        <div class="card an-stat-card" id="anCardIncome">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div class="an-card-label">Income</div>
+            <span class="an-currency-badge">USD</span>
+          </div>
+          <div class="an-big-val" id="anTotalInc">$0<span class="an-cents">.00</span></div>
+          <div class="an-card-meta">
+            <span class="an-change pos" id="anIncChange"></span>
+            <span class="an-tx-count" id="anIncTx"></span>
+          </div>
+          <div class="an-card-sub" id="anIncSub"></div>
+          <div class="an-cat-count" id="anIncCats"></div>
+        </div>
+        <div class="card an-stat-card" id="anCardExpense">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div class="an-card-label">Expense</div>
+            <span class="an-currency-badge">USD</span>
+          </div>
+          <div class="an-big-val" id="anTotalExp">$0<span class="an-cents">.00</span></div>
+          <div class="an-card-meta">
+            <span class="an-change neg" id="anExpChange"></span>
+            <span class="an-tx-count" id="anExpTx"></span>
+          </div>
+          <div class="an-card-sub" id="anExpSub"></div>
+          <div class="an-cat-count" id="anExpCats"></div>
         </div>
       </div>
+
+      <!-- Charts row -->
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:16px;" class="an-charts-row">
+
+        <!-- Line chart: Balance overview -->
+        <div class="card" style="padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <h3 style="font-size:14px;font-weight:700;">Total balance overview</h3>
+            <div style="display:flex;gap:16px;align-items:center;font-size:11px;color:var(--text-2);">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:4px;"></span>This month</span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px dashed var(--text-3);margin-right:4px;"></span>Last month</span>
+            </div>
+          </div>
+          <div style="position:relative;height:200px;overflow:hidden;">
+            <canvas id="anLineChart" style="width:100%;height:100%;"></canvas>
+            <div id="anLineEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:13px;">Add transactions to see chart</div>
+          </div>
+          <div id="anLineXL" style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-2);padding:0 4px;"></div>
+        </div>
+
+        <!-- Statistics donut panel -->
+        <div class="card" style="padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <h3 style="font-size:14px;font-weight:700;">Statistics</h3>
+          </div>
+          <p style="font-size:11px;color:var(--text-2);margin-bottom:16px;" id="anStatSubtitle">Expense breakdown by category</p>
+          <div style="position:relative;width:160px;height:160px;margin:0 auto 16px;">
+            <svg viewBox="0 0 36 36" id="anDonutSvg" style="width:100%;height:100%;transform:rotate(-90deg);">
+              <circle cx="18" cy="18" r="13" fill="none" stroke="var(--border)" stroke-width="5"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+              <div style="font-size:10px;color:var(--text-2);line-height:1.3;">This month<br>expense</div>
+              <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text-1);margin-top:2px;" id="anDonutTotal">$0</div>
+            </div>
+          </div>
+          <div id="anDonutLegend" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+      </div>
+
+      <!-- Bar chart: Monthly income vs expense -->
+      <div class="card" style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+          <h3 style="font-size:14px;font-weight:700;">Income vs Expense by month</h3>
+          <div style="display:flex;gap:16px;font-size:11px;color:var(--text-2);">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);margin-right:4px;"></span>Income</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--bar-expense);margin-right:4px;"></span>Expense</span>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:180px;">
+          <div class="chart-y">
+            <span class="yt" id="anYtMax"></span>
+            <span class="yt" id="anYtMid"></span>
+            <span class="yt" id="anYtLow"></span>
+            <span class="yt">$0</span>
+          </div>
+          <div class="chart-grid"><div class="gl"></div><div class="gl"></div><div class="gl"></div><div class="gl"></div></div>
+          <div class="chart-bars" id="anBars"></div>
+          <div class="chart-xl" id="anXL"></div>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -1559,52 +1667,267 @@ async function deleteTransaction(id) {
 /* ══════════════════════════════════
    ANALYTICS PAGE
 ══════════════════════════════════ */
+let _anPeriod = 'month';
+
 async function renderAnalyticsPage() {
   try {
     const [txs, catBreak, flow] = await Promise.all([
       getTx(),
       API.get('/api/category-breakdown'),
-      API.get('/api/monthly-flow?months=6'),
+      API.get('/api/monthly-flow?months=7'),
     ]);
-    const inc   = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-    const exp   = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-    const setT  = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-    setT('anTotalInc', fmtCurrency(inc));
-    setT('anTotalExp', fmtCurrency(exp));
-    setT('anNet',      fmtCurrency(inc-exp));
-    setT('anCount',    txs.length);
 
-    // Category bars
-    const catEl = document.getElementById('anCatBars');
-    const maxC  = catBreak[0]?.total||1;
-    if (catEl) catEl.innerHTML = catBreak.slice(0,6).map(r=>{
-      const c=CAT_COLORS[r.category]||'#6b7280';
-      return ` + "`" + `<div class="cat-bar-row">
-        <div class="cat-bar-label">${esc(r.category)}</div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(r.total/maxC*100).toFixed(1)}%;background:${c};"></div></div>
-        <div class="cat-bar-val">${fmtCurrency(r.total)}</div>
-      </div>` + "`" + `;
-    }).join('') || '<div style="color:var(--text-2);font-size:13px;">No expense data yet.</div>';
+    // Filter for period
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    // Monthly chart
-    const anBarsEl = document.getElementById('anBars');
-    const anXlEl   = document.getElementById('anXL');
-    if (anBarsEl) {
-      anBarsEl.innerHTML=''; anXlEl.innerHTML='';
-      const mMax = Math.max(...flow.map(r=>Math.max(r.income,r.expense)),1);
-      const anYt=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent='$'+fmtK(v);};
-      anYt('anYtMax',mMax);anYt('anYtMid',Math.round(mMax*.66));anYt('anYtLow',Math.round(mMax*.33));
-      flow.forEach(row=>{
-        const col=document.createElement('div');col.className='bc';
-        const pair=document.createElement('div');pair.className='bp';
-        const ih=Math.max(2,(row.income/mMax)*100);
-        const eh=Math.max(2,(row.expense/mMax)*100);
-        pair.innerHTML=` + "`" + `<div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div><div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>` + "`" + `;
-        col.append(pair);anBarsEl.append(col);
-        const lbl=document.createElement('div');lbl.className='xl';lbl.textContent=row.month;anXlEl.append(lbl);
-      });
+    const periodTxs = _anPeriod === 'month'
+      ? txs.filter(t => new Date(t.date) >= monthStart)
+      : txs;
+    const lastTxs = txs.filter(t => {
+      const d = new Date(t.date);
+      return d >= lastMonthStart && d <= lastMonthEnd;
+    });
+
+    const inc    = periodTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const exp    = periodTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const bal    = inc - exp;
+    const lastInc= lastTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const lastExp= lastTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const lastBal= lastInc - lastExp;
+
+    const incTxCount = periodTxs.filter(t=>t.type==='income').length;
+    const expTxCount = periodTxs.filter(t=>t.type==='expense').length;
+    const incCats = [...new Set(periodTxs.filter(t=>t.type==='income').map(t=>t.category))].length;
+    const expCats = [...new Set(periodTxs.filter(t=>t.type==='expense').map(t=>t.category))].length;
+
+    // Helper: format big value split at decimal
+    function setVal(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const parts = Math.abs(val).toFixed(2).split('.');
+      el.innerHTML = (val < 0 ? '-' : '') + '$' + Number(parts[0]).toLocaleString() + '<span class="an-cents">.' + parts[1] + '</span>';
     }
+
+    function setPct(id, cur, prev, cls) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (prev === 0) { el.textContent = ''; return; }
+      const pct = ((cur - prev) / Math.abs(prev) * 100);
+      const arrow = pct >= 0 ? '↑' : '↓';
+      el.textContent = arrow + ' ' + Math.abs(pct).toFixed(1) + '%';
+      el.className = 'an-change ' + (cls === 'exp' ? (pct > 0 ? 'neg' : 'pos') : (pct >= 0 ? 'pos' : 'neg'));
+    }
+
+    function setT(id, v) { const el=document.getElementById(id); if(el) el.textContent=v; }
+
+    setVal('anTotalBal', bal);
+    setVal('anTotalInc', inc);
+    setVal('anTotalExp', exp);
+
+    setPct('anBalChange', bal, lastBal, 'bal');
+    setPct('anIncChange', inc, lastInc, 'inc');
+    setPct('anExpChange', exp, lastExp, 'exp');
+
+    setT('anBalTx',  periodTxs.length + ' transactions');
+    setT('anIncTx',  incTxCount + ' transactions');
+    setT('anExpTx',  expTxCount + ' transactions');
+
+    setT('anBalCats', (incCats + expCats) + ' categories');
+    setT('anIncCats', incCats + ' categories');
+    setT('anExpCats', expCats + ' categories');
+
+    const extra = bal - lastBal;
+    setT('anBalSub', extra >= 0
+      ? 'You have extra ' + fmtCurrency(Math.abs(extra)) + ' vs last month'
+      : 'You have ' + fmtCurrency(Math.abs(extra)) + ' less vs last month');
+    const extraInc = inc - lastInc;
+    setT('anIncSub', extraInc >= 0
+      ? 'You earn extra ' + fmtCurrency(Math.abs(extraInc)) + ' vs last month'
+      : 'You earn ' + fmtCurrency(Math.abs(extraInc)) + ' less vs last month');
+    const extraExp = exp - lastExp;
+    setT('anExpSub', extraExp > 0
+      ? 'You spent extra ' + fmtCurrency(Math.abs(extraExp)) + ' vs last month'
+      : 'You spent ' + fmtCurrency(Math.abs(extraExp)) + ' less vs last month');
+
+    // Line chart (canvas-based smooth lines)
+    renderAnLineChart(flow);
+
+    // Donut statistics
+    const monthCat = catBreak; // already filtered server-side to expense
+    renderAnDonut(monthCat, exp);
+
+    // Bar chart
+    renderAnBarChart(flow);
+
   } catch(e) { console.error('analytics:', e); }
+}
+
+function renderAnLineChart(flow) {
+  const canvas = document.getElementById('anLineChart');
+  const xlEl   = document.getElementById('anLineXL');
+  if (!canvas) return;
+
+  const W = canvas.parentElement.offsetWidth || 600;
+  const H = 200;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (!flow.length) {
+    if (xlEl) xlEl.innerHTML = '';
+    return;
+  }
+
+  const vals = flow.map(r => r.income - r.expense);
+  const maxV = Math.max(...vals.map(Math.abs), 1);
+  const pad  = { t: 20, b: 10, l: 10, r: 10 };
+  const cW   = W - pad.l - pad.r;
+  const cH   = H - pad.t - pad.b;
+
+  const toX = i => pad.l + (i / Math.max(flow.length-1,1)) * cW;
+  const toY = v => pad.t + cH - ((v + maxV) / (2 * maxV)) * cH;
+
+  // Grid lines
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim() || '#ede9ff';
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.t + t * cH;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  });
+
+  // Fill gradient
+  const accent = '#7c5cfc';
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H);
+  grad.addColorStop(0, 'rgba(124,92,252,0.25)');
+  grad.addColorStop(1, 'rgba(124,92,252,0)');
+
+  ctx.beginPath();
+  vals.forEach((v, i) => {
+    const x = toX(i), y = toY(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.bezierCurveTo(toX(i-0.5), toY(vals[i-1]), toX(i-0.5), y, x, y);
+  });
+  ctx.lineTo(toX(vals.length-1), H);
+  ctx.lineTo(toX(0), H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  vals.forEach((v, i) => {
+    const x = toX(i), y = toY(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.bezierCurveTo(toX(i-0.5), toY(vals[i-1]), toX(i-0.5), y, x, y);
+  });
+  ctx.stroke();
+
+  // Dots + tooltip on highest value
+  const maxIdx = vals.indexOf(Math.max(...vals));
+  vals.forEach((v, i) => {
+    ctx.beginPath();
+    ctx.arc(toX(i), toY(v), i === maxIdx ? 5 : 3.5, 0, Math.PI*2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (i === maxIdx) {
+      const x = toX(i), y = toY(v);
+      const label = fmtCurrency(v);
+      const bw = ctx.measureText(label).width + 16;
+      const bh = 24;
+      const bx = Math.min(x - bw/2, W - bw - 4);
+      const by = y - bh - 10;
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,0.12)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 6);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#1a1340';
+      ctx.font = '600 12px Sora, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, bx + bw/2, by + 16);
+    }
+  });
+
+  // X labels
+  if (xlEl) {
+    xlEl.innerHTML = flow.map(r => ` + "`" + `<span>${esc(r.month)}</span>` + "`" + `).join('');
+  }
+}
+
+function renderAnDonut(catRows, total) {
+  const svgEl  = document.getElementById('anDonutSvg');
+  const totEl  = document.getElementById('anDonutTotal');
+  const legEl  = document.getElementById('anDonutLegend');
+  if (!svgEl) return;
+
+  const parts = total.toFixed(2).split('.');
+  if (totEl) totEl.innerHTML = '$' + Number(parts[0]).toLocaleString() + '<span style="font-size:11px;color:var(--text-2)">.' + parts[1] + '</span>';
+
+  const C = 2 * Math.PI * 13;
+  // Keep base circle
+  svgEl.innerHTML = '<circle cx="18" cy="18" r="13" fill="none" stroke="var(--border)" stroke-width="5"/>';
+  if (legEl) legEl.innerHTML = '';
+
+  if (!total || !catRows.length) return;
+
+  const colorsArr = Object.values(CAT_COLORS);
+  let offset = 0;
+  catRows.slice(0,6).forEach((row, i) => {
+    const pct  = row.total / total;
+    const dash = pct * C;
+    const gap  = C * 0.02; // small gap between segments
+    const color = CAT_COLORS[row.category] || colorsArr[i % colorsArr.length];
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx','18'); circle.setAttribute('cy','18'); circle.setAttribute('r','13');
+    circle.setAttribute('fill','none'); circle.setAttribute('stroke',color); circle.setAttribute('stroke-width','5');
+    circle.setAttribute('stroke-dasharray',` + "`" + `${Math.max(0,dash-gap).toFixed(2)} ${(C-dash+gap).toFixed(2)}` + "`" + `);
+    circle.setAttribute('stroke-dashoffset', (-offset).toFixed(2));
+    svgEl.appendChild(circle);
+    offset += dash;
+
+    if (legEl) {
+      const pctLbl = (pct*100).toFixed(0)+'%';
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);';
+      item.innerHTML = ` + "`" + `<span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>${esc(row.category)} <span style="color:var(--text-1);font-weight:600;">${pctLbl}</span>` + "`" + `;
+      legEl.appendChild(item);
+    }
+  });
+}
+
+function renderAnBarChart(flow) {
+  const barsEl = document.getElementById('anBars');
+  const xlEl   = document.getElementById('anXL');
+  if (!barsEl) return;
+  barsEl.innerHTML = ''; xlEl.innerHTML = '';
+
+  const mMax = Math.max(...flow.map(r=>Math.max(r.income,r.expense)), 1);
+  const setYt = (id,v) => { const el=document.getElementById(id); if(el) el.textContent='$'+fmtK(v); };
+  setYt('anYtMax',mMax); setYt('anYtMid',Math.round(mMax*.66)); setYt('anYtLow',Math.round(mMax*.33));
+
+  flow.forEach(row => {
+    const col  = document.createElement('div'); col.className='bc';
+    const pair = document.createElement('div'); pair.className='bp';
+    const ih   = Math.max(2,(row.income /mMax)*100);
+    const eh   = Math.max(2,(row.expense/mMax)*100);
+    pair.innerHTML = ` + "`" + `
+      <div class="bar inc" style="height:${ih}%;border-radius:6px 6px 0 0;"><div class="btt">${fmtCurrency(row.income)}</div></div>
+      <div class="bar exp" style="height:${eh}%;border-radius:6px 6px 0 0;"><div class="btt">${fmtCurrency(row.expense)}</div></div>` + "`" + `;
+    col.append(pair); barsEl.append(col);
+    const lbl = document.createElement('div'); lbl.className='xl'; lbl.textContent=row.month;
+    xlEl.append(lbl);
+  });
 }
 
 /* ══════════════════════════════════
@@ -2073,6 +2396,31 @@ document.addEventListener('DOMContentLoaded', () => {
       el.addEventListener('input',  applyTxFilters);
       el.addEventListener('change', applyTxFilters);
     }
+  });
+
+  // Analytics period toggle
+  document.querySelectorAll('[data-anperiod]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-anperiod]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _anPeriod = btn.dataset.anperiod;
+      const anPage = document.querySelector('.page[data-page="analytics"]');
+      if (anPage && anPage.classList.contains('active')) renderAnalyticsPage();
+    });
+  });
+
+  // Analytics CSV export
+  const csvBtn = document.getElementById('anExportCsv');
+  if (csvBtn) csvBtn.addEventListener('click', async () => {
+    const txs = await getTx();
+    const header = 'id,type,amount,category,method,date,note';
+    const rows = txs.map(t =>
+      [t.id,t.type,t.amount,t.category,t.method,t.date,(t.note||'').replace(/,/g,';')].join(',')
+    );
+    const blob = new Blob([header+'\n'+rows.join('\n')], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download='finset-transactions.csv'; a.click();
+    showToast('CSV exported!');
   });
 
   // Theme
