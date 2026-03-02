@@ -206,18 +206,32 @@ type MonthlyRow struct {
 	Expense float64 `json:"expense"`
 }
 
+// GetMonthlyFlow returns per-month totals for the last N months.
+// Uses fmt.Sprintf to inline the months value — avoids pgx parameter
+// type casting issues with INTERVAL arithmetic.
 func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, error) {
+	if months < 1 {
+		months = 7
+	}
+	if months > 24 {
+		months = 24
+	}
+
+	// Build the cutoff date in Go — no $1 in INTERVAL expression
+	cutoff := time.Now().AddDate(0, -(months - 1), 0)
+	cutoffStr := fmt.Sprintf("%d-%02d-01", cutoff.Year(), cutoff.Month())
+
 	rows, err := p.Query(ctx, `
 		SELECT
-			TO_CHAR(DATE_TRUNC('month', date), 'Mon') AS month,
-			EXTRACT(YEAR FROM date)::INT              AS year,
+			TO_CHAR(DATE_TRUNC('month', date), 'Mon')  AS month,
+			EXTRACT(YEAR FROM date)::INT               AS year,
 			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0) AS income,
 			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0) AS expense
 		FROM transactions
-		WHERE date >= DATE_TRUNC('month', NOW() - ($1 - 1) * INTERVAL '1 month')
+		WHERE date >= $1::DATE
 		GROUP BY DATE_TRUNC('month', date)
 		ORDER BY DATE_TRUNC('month', date) ASC
-	`, months)
+	`, cutoffStr)
 	if err != nil {
 		return nil, err
 	}
