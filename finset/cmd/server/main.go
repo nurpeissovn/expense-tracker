@@ -53,11 +53,13 @@ func main() {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health",               h.Health)
+		r.Get("/debug",                h.Debug)
 		r.Get("/stats",                h.GetStats)
 		r.Get("/monthly-flow",         h.GetMonthlyFlow)
 		r.Get("/category-breakdown",   h.GetCategoryBreakdown)
 		r.Get("/transactions",         h.ListTransactions)
 		r.Post("/transactions",        h.CreateTransaction)
+		r.Delete("/transactions/all",  h.DeleteAllTransactions)
 		r.Get("/transactions/{id}",    h.GetTransaction)
 		r.Delete("/transactions/{id}", h.DeleteTransaction)
 		r.Post("/import",              h.ImportTransactions)

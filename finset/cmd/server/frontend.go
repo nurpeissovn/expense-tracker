@@ -1,7 +1,5 @@
 package main
 
-// indexHTML contains the full frontend. Generated from static/index.html.
-// This approach avoids all go:embed and git-tracking issues.
 const indexHTML = `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -1324,20 +1322,36 @@ window.addEventListener('popstate', e => {
 ══════════════════════════════════ */
 async function renderDashboard() {
   showPageSpinner('dashStats');
-  try {
-    const [txs, monthlyFlow, catBreak] = await Promise.all([
-      getTx(),
-      API.get('/api/monthly-flow?months=7'),
-      API.get('/api/category-breakdown'),
-    ]);
 
+  // Fetch each independently so one failure doesn't break the whole dashboard
+  const [txsResult, flowResult, catResult] = await Promise.allSettled([
+    getTx(),
+    API.get('/api/monthly-flow?months=7'),
+    API.get('/api/category-breakdown'),
+  ]);
+
+  const txs      = txsResult.status  === 'fulfilled' ? txsResult.value  : [];
+  const flow     = flowResult.status === 'fulfilled' ? flowResult.value : [];
+  const catBreak = catResult.status  === 'fulfilled' ? catResult.value  : [];
+
+  if (txsResult.status === 'rejected') {
+    showError('dashStats', 'transactions: ' + txsResult.reason.message);
+  } else {
     renderDashStats(txs);
     renderDashRecentTx(txs);
-    renderMoneyFlowChart(monthlyFlow);
-    renderDonut('donutSvg','donutTotal','donutLegend', catBreak);
     updateTxBadge(txs.length);
-  } catch(e) {
-    showError('dashStats', e.message);
+  }
+
+  if (flowResult.status === 'rejected') {
+    console.error('monthly-flow error:', flowResult.reason.message);
+    const barsEl = document.getElementById('cBars');
+    if (barsEl) barsEl.innerHTML = '<div style="color:var(--red-text);font-size:12px;padding:8px;">Chart error: ' + flowResult.reason.message + '</div>';
+  } else {
+    renderMoneyFlowChart(flow);
+  }
+
+  if (catResult.status === 'fulfilled') {
+    renderDonut('donutSvg','donutTotal','donutLegend', catBreak);
   }
 }
 
@@ -1874,12 +1888,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('importFile').addEventListener('change', e=>importData(e.target.files[0]));
   document.getElementById('resetDemoBtn').addEventListener('click', async ()=>{
     if(!confirm('This will wipe all data and reload demo transactions. Continue?')) return;
-    // Call API import with demo data
-    const demo = getDemoTransactions();
     try {
-      // First clear: delete all, then bulk insert
-      const txs = await API.get('/api/transactions');
-      await Promise.all(txs.map(t=>API.del('/api/transactions/'+t.id)));
+      // Clear all transactions via dedicated endpoint
+      await API.del('/api/transactions/all');
+      // Re-import demo data (UUIDs are now proper RFC-4122 format)
+      const demo = getDemoTransactions();
       await API.post('/api/import', {transactions:demo});
       invalidateCache();
       await renderDashboard();
@@ -1904,7 +1917,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function getDemoTransactions() {
   const now = new Date();
   const d = offset => { const dt=new Date(now); dt.setDate(dt.getDate()-offset); return dt.toISOString().split('T')[0]; };
-  const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  // Generate RFC-4122 compliant UUIDs (required by PostgreSQL uuid column type)
+  const uid = () => ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
   return [
     {id:uid(),type:'income', amount:3200, category:'Salary',       method:'Transfer',date:d(1), note:'Monthly salary',       created_at:new Date().toISOString()},
     {id:uid(),type:'expense',amount:80,   category:'Food',         method:'Card',    date:d(2), note:'Yaposhka restaurant',  created_at:new Date().toISOString()},

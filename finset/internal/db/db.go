@@ -177,6 +177,14 @@ func (p *Pool) CreateTransaction(ctx context.Context, id string, r models.Create
 	return &t, nil
 }
 
+func (p *Pool) DeleteAllTransactions(ctx context.Context) (int, error) {
+	tag, err := p.Exec(ctx, `DELETE FROM transactions`)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 func (p *Pool) DeleteTransaction(ctx context.Context, id string) (bool, error) {
 	tag, err := p.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, id)
 	if err != nil {

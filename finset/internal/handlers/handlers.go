@@ -86,6 +86,15 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, tx)
 }
 
+func (h *Handler) DeleteAllTransactions(w http.ResponseWriter, r *http.Request) {
+	n, err := h.DB.DeleteAllTransactions(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete all: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"deleted": n})
+}
+
 func (h *Handler) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	found, err := h.DB.DeleteTransaction(r.Context(), id)
@@ -165,6 +174,55 @@ func (h *Handler) ImportTransactions(w http.ResponseWriter, r *http.Request) {
 		"skipped":  len(body.Transactions) - inserted,
 		"total":    len(body.Transactions),
 	})
+}
+
+func (h *Handler) Debug(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	result := map[string]any{}
+
+	// Test basic query
+	var count int
+	err := h.DB.QueryRow(ctx, `SELECT COUNT(*) FROM transactions`).Scan(&count)
+	if err != nil {
+		result["count_error"] = err.Error()
+	} else {
+		result["count"] = count
+	}
+
+	// Test monthly flow query directly
+	cutoff := "2020-01-01"
+	rows, err := h.DB.Query(ctx, `
+		SELECT
+			TO_CHAR(DATE_TRUNC('month', date), 'Mon') AS month,
+			TO_CHAR(DATE_TRUNC('month', date), 'YYYY') AS year,
+			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0)::float8 AS income,
+			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0)::float8 AS expense
+		FROM transactions
+		WHERE date >= $1::DATE
+		GROUP BY DATE_TRUNC('month', date)
+		ORDER BY DATE_TRUNC('month', date) ASC
+	`, cutoff)
+	if err != nil {
+		result["flow_query_error"] = err.Error()
+	} else {
+		defer rows.Close()
+		var flowRows []map[string]any
+		for rows.Next() {
+			var month, year string
+			var income, expense float64
+			if err := rows.Scan(&month, &year, &income, &expense); err != nil {
+				result["flow_scan_error"] = err.Error()
+				break
+			}
+			flowRows = append(flowRows, map[string]any{"month": month, "year": year, "income": income, "expense": expense})
+		}
+		result["flow_rows"] = flowRows
+		if err := rows.Err(); err != nil {
+			result["flow_rows_error"] = err.Error()
+		}
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
