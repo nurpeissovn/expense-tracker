@@ -1,8 +1,6 @@
 package main
 
 import (
-	"embed"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -16,8 +14,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static/index.html
-var staticFiles embed.FS
+// indexHTML is defined in frontend.go as a const string.
+// No go:embed, no static/ folder needed — zero Git/Docker issues.
 
 func main() {
 	_ = godotenv.Load()
@@ -65,24 +63,11 @@ func main() {
 		r.Post("/import",              h.ImportTransactions)
 	})
 
-	indexHTML, err := staticFiles.ReadFile("static/index.html")
-	if err != nil {
-		log.Fatalf("read embedded index.html: %v", err)
-	}
-
-	staticFS, _ := fs.Sub(staticFiles, "static")
-
+	// Serve frontend — all non-API routes return index.html
 	r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
-		path := req.URL.Path[1:]
-		if path != "" {
-			if _, statErr := fs.Stat(staticFS, path); statErr == nil {
-				http.FileServer(http.FS(staticFS)).ServeHTTP(w, req)
-				return
-			}
-		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		w.Write(indexHTML)
+		w.Write([]byte(indexHTML))
 	})
 
 	log.Printf("FinSet listening on :%s", port)

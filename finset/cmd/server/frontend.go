@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+package main
+
+// indexHTML contains the full frontend. Generated from static/index.html.
+// This approach avoids all go:embed and git-tracking issues.
+const indexHTML = `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
@@ -1235,7 +1239,7 @@ input[type="date"].filter-sel { color:var(--text-1); }
 const API = {
   async get(path) {
     const r = await fetch(path);
-    if (!r.ok) throw new Error(`GET ${path} → ${r.status}`);
+    if (!r.ok) throw new Error(` + "`" + `GET ${path} → ${r.status}` + "`" + `);
     return r.json();
   },
   async post(path, body) {
@@ -1245,13 +1249,13 @@ const API = {
       body: JSON.stringify(body),
     });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || `POST ${path} → ${r.status}`);
+    if (!r.ok) throw new Error(data.error || ` + "`" + `POST ${path} → ${r.status}` + "`" + `);
     return data;
   },
   async del(path) {
     const r = await fetch(path, {method:'DELETE'});
     if (r.status === 404) throw new Error('not found');
-    if (!r.ok) throw new Error(`DELETE ${path} → ${r.status}`);
+    if (!r.ok) throw new Error(` + "`" + `DELETE ${path} → ${r.status}` + "`" + `);
   },
 };
 
@@ -1361,25 +1365,25 @@ function renderDashStats(allTxs) {
 
   const el = document.getElementById('dashStats');
   if (!el) return;
-  el.innerHTML = `
+  el.innerHTML = ` + "`" + `
     ${statCard('Total balance', balance, balance>=0?'up':'dn', 'period net')}
     ${statCard('Income', income, 'up', 'period total')}
     ${statCard('Expense', expense, 'dn', 'period total')}
-    ${statCard('Net savings', savings, 'up', 'accumulated')}`;
+    ${statCard('Net savings', savings, 'up', 'accumulated')}` + "`" + `;
 }
 
 function statCard(label, val, dir, sub) {
   const arrow = dir==='up'
     ? '<polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/>'
     : '<polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>';
-  return `<div class="sc">
+  return ` + "`" + `<div class="sc">
     <div class="sc-head"><span class="sc-lbl">${esc(label)}</span>
       <span class="sc-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
     </div>
     <div class="sc-val">${fmtCurrency(val)}</div>
     <span class="chg ${dir}"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5">${arrow}</svg></span>
     <span class="chg-vs">${esc(sub)}</span>
-  </div>`;
+  </div>` + "`" + `;
 }
 
 function renderDashRecentTx(txs) {
@@ -1388,7 +1392,7 @@ function renderDashRecentTx(txs) {
   const sorted = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
   tbody.innerHTML = sorted.length
     ? sorted.map(t => txRowHtml(t, false)).join('')
-    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-2);">No transactions yet. Add one!</td></tr>`;
+    : ` + "`" + `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-2);">No transactions yet. Add one!</td></tr>` + "`" + `;
 }
 
 /* ══════════════════════════════════
@@ -1409,9 +1413,9 @@ function renderMoneyFlowChart(rows) {
     const pair= document.createElement('div'); pair.className='bp';
     const ih  = Math.max(2,(row.income /maxVal)*100);
     const eh  = Math.max(2,(row.expense/maxVal)*100);
-    pair.innerHTML = `
+    pair.innerHTML = ` + "`" + `
       <div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div>
-      <div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>`;
+      <div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>` + "`" + `;
     col.append(pair); barsEl.append(col);
     const lbl=document.createElement('div'); lbl.className='xl'; lbl.textContent=row.month;
     xlEl.append(lbl);
@@ -1431,7 +1435,7 @@ function renderDonut(svgId, totalId, legendId, catRows) {
   if (totEl) totEl.textContent = fmtCurrency(total);
 
   const C = 2 * Math.PI * 14; // circumference at r=14
-  svgEl.innerHTML = `<circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" stroke-width="4.5"/>`;
+  svgEl.innerHTML = ` + "`" + `<circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" stroke-width="4.5"/>` + "`" + `;
   if (legEl) legEl.innerHTML = '';
 
   if (total === 0) {
@@ -1448,13 +1452,13 @@ function renderDonut(svgId, totalId, legendId, catRows) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
     circle.setAttribute('cx','18'); circle.setAttribute('cy','18'); circle.setAttribute('r','14');
     circle.setAttribute('fill','none'); circle.setAttribute('stroke',color); circle.setAttribute('stroke-width','4.5');
-    circle.setAttribute('stroke-dasharray',`${dash.toFixed(2)} ${(C-dash).toFixed(2)}`);
+    circle.setAttribute('stroke-dasharray',` + "`" + `${dash.toFixed(2)} ${(C-dash).toFixed(2)}` + "`" + `);
     circle.setAttribute('stroke-dashoffset', (-offset).toFixed(2));
     svgEl.appendChild(circle);
     offset += dash;
     if (legEl) {
       const row2=document.createElement('div'); row2.className='bli';
-      row2.innerHTML=`<div class="bldot" style="background:${color}"></div><span class="blname">${esc(row.category)}</span>`;
+      row2.innerHTML=` + "`" + `<div class="bldot" style="background:${color}"></div><span class="blname">${esc(row.category)}</span>` + "`" + `;
       legEl.appendChild(row2);
     }
   });
@@ -1501,7 +1505,7 @@ async function applyTxFilters() {
 async function deleteTransaction(id) {
   if (!confirm('Delete this transaction?')) return;
   try {
-    await API.del(`/api/transactions/${id}`);
+    await API.del(` + "`" + `/api/transactions/${id}` + "`" + `);
     invalidateCache();
     await applyTxFilters();
     await renderDashboard();
@@ -1534,11 +1538,11 @@ async function renderAnalyticsPage() {
     const maxC  = catBreak[0]?.total||1;
     if (catEl) catEl.innerHTML = catBreak.slice(0,6).map(r=>{
       const c=CAT_COLORS[r.category]||'#6b7280';
-      return `<div class="cat-bar-row">
+      return ` + "`" + `<div class="cat-bar-row">
         <div class="cat-bar-label">${esc(r.category)}</div>
         <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${(r.total/maxC*100).toFixed(1)}%;background:${c};"></div></div>
         <div class="cat-bar-val">${fmtCurrency(r.total)}</div>
-      </div>`;
+      </div>` + "`" + `;
     }).join('') || '<div style="color:var(--text-2);font-size:13px;">No expense data yet.</div>';
 
     // Monthly chart
@@ -1554,7 +1558,7 @@ async function renderAnalyticsPage() {
         const pair=document.createElement('div');pair.className='bp';
         const ih=Math.max(2,(row.income/mMax)*100);
         const eh=Math.max(2,(row.expense/mMax)*100);
-        pair.innerHTML=`<div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div><div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>`;
+        pair.innerHTML=` + "`" + `<div class="bar inc" style="height:${ih}%"><div class="btt">${fmtCurrency(row.income)}</div></div><div class="bar exp" style="height:${eh}%"><div class="btt">${fmtCurrency(row.expense)}</div></div>` + "`" + `;
         col.append(pair);anBarsEl.append(col);
         const lbl=document.createElement('div');lbl.className='xl';lbl.textContent=row.month;anXlEl.append(lbl);
       });
@@ -1576,12 +1580,12 @@ async function renderBudgetPage() {
         ? catBreak.map((r,i)=>{
             const c=CAT_COLORS[r.category]||colorsArr[i%colorsArr.length];
             const pct=total?(r.total/total*100).toFixed(1):0;
-            return `<div class="budget-cat-row">
+            return ` + "`" + `<div class="budget-cat-row">
               <div class="budget-cat-dot" style="background:${c}"></div>
               <div class="budget-cat-name">${esc(r.category)}</div>
               <div class="budget-cat-bar-wrap"><div class="budget-cat-bar" style="width:${pct}%;background:${c};"></div></div>
               <div class="budget-cat-amt">${fmtCurrency(r.total)}</div>
-            </div>`;
+            </div>` + "`" + `;
           }).join('')
         : '<div style="color:var(--text-2);font-size:13px;padding:12px 0;">No expense data yet.</div>';
     }
@@ -1615,22 +1619,22 @@ function txRowHtml(t, showDelete) {
   const iconBg= isInc?'var(--green-bg)':'var(--red-bg)';
   const iconSt= isInc?'var(--green-text)':'var(--red-text)';
   const iconSvg= isInc
-    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>`
-    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg>`;
+    ? ` + "`" + `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>` + "`" + `
+    : ` + "`" + `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${iconSt}" stroke-width="2.2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg>` + "`" + `;
   const delBtn = showDelete
-    ? `<td><button class="del-btn" data-id="${t.id}" title="Delete">
+    ? ` + "`" + `<td><button class="del-btn" data-id="${t.id}" title="Delete">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      </button></td>` : '';
+      </button></td>` + "`" + ` : '';
   const typeTd = showDelete
-    ? `<td><span class="cchip ${isInc?'g':'r'}">${isInc?'Income':'Expense'}</span></td>` : '';
-  return `<tr>
+    ? ` + "`" + `<td><span class="cchip ${isInc?'g':'r'}">${isInc?'Income':'Expense'}</span></td>` + "`" + ` : '';
+  return ` + "`" + `<tr>
     <td class="td-d" style="padding-left:20px;">${fmtDate(t.date)}</td>
     <td class="${isInc?'pos':'neg'}">${isInc?'+':'−'}${fmtCurrency(t.amount)}</td>
     <td><span class="txi" style="background:${iconBg};">${iconSvg}</span><span class="txn">${esc(t.note||t.category)}</span></td>
     <td><span class="mchip"><svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>${esc(t.method)}</span></td>
     <td><span class="cchip ${isInc?'g':''}">${esc(t.category)}</span></td>
     ${typeTd}${delBtn}
-  </tr>`;
+  </tr>` + "`" + `;
 }
 
 /* ══════════════════════════════════
@@ -1696,7 +1700,7 @@ async function submitTransaction() {
     await renderDashboard();
     const txPage=document.querySelector('.page[data-page="transactions"]');
     if (txPage&&txPage.classList.contains('active')) await renderTransactionsPage();
-    showToast(`${_selectedType==='income'?'Income':'Expense'} saved! 🎉`);
+    showToast(` + "`" + `${_selectedType==='income'?'Income':'Expense'} saved! 🎉` + "`" + `);
   } catch(e) {
     showToast('Error: '+e.message);
   } finally {
@@ -1726,7 +1730,7 @@ async function importData(file) {
       const res = await API.post('/api/import', {transactions:txs});
       invalidateCache();
       await renderDashboard();
-      showToast(`Imported ${res.inserted} new, skipped ${res.skipped} duplicates.`);
+      showToast(` + "`" + `Imported ${res.inserted} new, skipped ${res.skipped} duplicates.` + "`" + `);
     } catch(err) { showToast('Import failed: '+err.message); }
   };
   reader.readAsText(file);
@@ -1787,11 +1791,11 @@ function updateTxBadge(n){
 }
 function showPageSpinner(containerId) {
   const el=document.getElementById(containerId);
-  if(el) el.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-2);font-size:12px;">Loading…</div>`;
+  if(el) el.innerHTML=` + "`" + `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-2);font-size:12px;">Loading…</div>` + "`" + `;
 }
 function showError(containerId, msg) {
   const el=document.getElementById(containerId);
-  if(el) el.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--red-text);font-size:12px;">⚠ ${esc(msg)}</div>`;
+  if(el) el.innerHTML=` + "`" + `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--red-text);font-size:12px;">⚠ ${esc(msg)}</div>` + "`" + `;
 }
 
 /* ══════════════════════════════════
@@ -1922,3 +1926,4 @@ function getDemoTransactions() {
 </script>
 </body>
 </html>
+`
