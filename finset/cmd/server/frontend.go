@@ -728,7 +728,7 @@ input[type="date"].filter-sel { color:var(--text-1); }
     <a class="nav-item" data-page="goals">
       <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       <span class="nav-label">Goals</span>
-      <span class="nav-badge-wrap"><span class="nav-badge">3</span></span>
+      <span class="nav-badge-wrap"><span class="nav-badge" id="goalsBadge">0</span></span>
       <span class="nav-tooltip">Goals</span>
     </a>
     <a class="nav-item" data-page="budget">
@@ -995,15 +995,15 @@ input[type="date"].filter-sel { color:var(--text-1); }
         </div>
         <div class="wallet-card" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);">
           <div class="wc-shine"></div><div class="wc-shine2"></div>
-          <div class="wc-type">Savings</div>
-          <div class="wc-bal">$32,913.00</div>
-          <div class="wc-num">•••• •••• •••• 2154</div>
+          <div class="wc-type">Total Income</div>
+          <div class="wc-bal" id="walletTotalInc">$0.00</div>
+          <div class="wc-num">All time earnings</div>
         </div>
-        <div class="wallet-card" style="background:linear-gradient(135deg,#22c55e,#4ade80);">
+        <div class="wallet-card" style="background:linear-gradient(135deg,#f43f5e,#fb7185);">
           <div class="wc-shine"></div><div class="wc-shine2"></div>
-          <div class="wc-type">Crypto</div>
-          <div class="wc-bal">$4,210.00</div>
-          <div class="wc-num">Ethereum wallet</div>
+          <div class="wc-type">Total Expenses</div>
+          <div class="wc-bal" id="walletTotalExp">$0.00</div>
+          <div class="wc-num">All time spending</div>
         </div>
       </div>
       <div class="card">
@@ -1015,24 +1015,50 @@ input[type="date"].filter-sel { color:var(--text-1); }
   </section>
 
   <!-- ─────────────── GOALS PAGE ─────────────── -->
+  <div class="modal-overlay" id="goalModal">
+    <div class="modal">
+      <div class="modal-hd">
+        <h2 id="goalModalTitle">Add goal</h2>
+        <button class="modal-close" id="goalModalClose">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="form-row">
+        <label>Icon (emoji)</label>
+        <input class="form-input" type="text" id="gIcon" placeholder="💻" maxlength="2" value="🎯">
+      </div>
+      <div class="form-row">
+        <label>Goal name *</label>
+        <input class="form-input" type="text" id="gName" placeholder="e.g. MacBook Pro">
+        <div class="form-error" id="gNameErr">Please enter a goal name.</div>
+      </div>
+      <div class="form-row">
+        <label>Target amount *</label>
+        <input class="form-input" type="number" id="gTarget" placeholder="0.00" min="1" step="0.01">
+        <div class="form-error" id="gTargetErr">Please enter a valid target amount.</div>
+      </div>
+      <div class="form-row">
+        <label>Amount saved so far</label>
+        <input class="form-input" type="number" id="gSaved" placeholder="0.00" min="0" step="0.01" value="0">
+      </div>
+      <input type="hidden" id="gEditId">
+      <div class="form-actions">
+        <button class="btn-outline" id="goalModalCancel">Cancel</button>
+        <button class="btn-primary" id="goalModalSave">Save goal</button>
+      </div>
+    </div>
+  </div>
+
   <section class="page" data-page="goals">
     <div class="page-header">
       <div><h1>Saving goals</h1><p>Track your financial milestones.</p></div>
-      <button class="btn-primary">
+      <button class="btn-primary" id="addGoalBtn">
         <svg viewBox="0 0 24 24" width="13" height="13" stroke="#fff" fill="none" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add goal
       </button>
     </div>
     <div class="page-body">
-      <div class="goals-grid">
-        <div class="goal-card"><span class="goal-icon">💻</span><div class="goal-name">MacBook Pro</div><div class="goal-target">Target: $6,600</div><div class="prog-t"><div class="prog-f" data-w="25" style="width:0%"></div></div><div class="goal-pct">25% — <span class="goal-amount">$1,650 saved</span></div></div>
-        <div class="goal-card"><span class="goal-icon">🚗</span><div class="goal-name">New car</div><div class="goal-target">Target: $142,857</div><div class="prog-t"><div class="prog-f" data-w="42" style="width:0%"></div></div><div class="goal-pct">42% — <span class="goal-amount">$60,000 saved</span></div></div>
-        <div class="goal-card"><span class="goal-icon">🏠</span><div class="goal-name">New house</div><div class="goal-target">Target: $5,000,000</div><div class="prog-t"><div class="prog-f" data-w="3" style="width:0%"></div></div><div class="goal-pct">3% — <span class="goal-amount">$150,000 saved</span></div></div>
-        <div class="goal-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border);background:transparent;min-height:160px;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <div style="font-size:13px;color:var(--text-2);margin-top:8px;font-weight:500;">Add new goal</div>
-        </div>
-      </div>
+      <div class="goals-grid" id="goalsGrid"></div>
     </div>
   </section>
 
@@ -1309,6 +1335,7 @@ async function renderPage(page) {
     case 'analytics':    await renderAnalyticsPage();      break;
     case 'budget':       await renderBudgetPage();         break;
     case 'wallet':       await renderWalletPage();         break;
+    case 'goals':        renderGoalsPage();                break;
   }
 }
 
@@ -1613,16 +1640,173 @@ async function renderBudgetPage() {
 async function renderWalletPage() {
   try {
     const txs = await getTx();
-    const inc  = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-    const exp  = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-    const el   = document.getElementById('walletMainBal');
-    if (el) el.textContent = fmtCurrency(inc-exp);
+    const inc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const exp = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const net = inc - exp;
+
+    const el = document.getElementById('walletMainBal');
+    if (el) el.textContent = fmtCurrency(Math.max(0, net));
+
+    // Update wallet card totals dynamically
+    const incEl = document.getElementById('walletTotalInc');
+    const expEl = document.getElementById('walletTotalExp');
+    if (incEl) incEl.textContent = fmtCurrency(inc);
+    if (expEl) expEl.textContent = fmtCurrency(exp);
+
     const tbody = document.getElementById('walletTxBody');
     if (tbody) {
-      const sorted = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
-      tbody.innerHTML = sorted.map(t=>txRowHtml(t,false)).join('');
+      const sorted = [...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,8);
+      tbody.innerHTML = sorted.length
+        ? sorted.map(t=>txRowHtml(t,false)).join('')
+        : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-2);">No transactions yet.</td></tr>';
     }
   } catch(e) { console.error('wallet:', e); }
+}
+
+/* ══════════════════════════════════
+   GOALS — localStorage based
+══════════════════════════════════ */
+const LS_GOALS = 'finset-goals';
+
+function loadGoals() {
+  try { return JSON.parse(localStorage.getItem(LS_GOALS)||'[]'); } catch{ return []; }
+}
+function saveGoals(goals) {
+  localStorage.setItem(LS_GOALS, JSON.stringify(goals));
+}
+
+function renderGoalsPage() {
+  const goals = loadGoals();
+  const grid  = document.getElementById('goalsGrid');
+  if (!grid) return;
+
+  const goalCards = goals.map(g => {
+    const pct     = Math.min(100, g.target > 0 ? (g.saved / g.target * 100) : 0);
+    const pctFmt  = pct.toFixed(1);
+    const color   = pct >= 100 ? '#22c55e' : pct >= 60 ? '#7c5cfc' : pct >= 30 ? '#f59e0b' : '#e879f9';
+    return ` + "`" + `<div class="goal-card" data-id="${g.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span class="goal-icon">${esc(g.icon||'🎯')}</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="openEditGoal('${g.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-2);padding:2px;" title="Edit">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button onclick="deleteGoal('${g.id}')" style="background:none;border:none;cursor:pointer;color:var(--red-text);padding:2px;" title="Delete">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="goal-name">${esc(g.name)}</div>
+      <div class="goal-target">Target: ${fmtCurrency(g.target)}</div>
+      <div class="prog-t" style="margin:10px 0 6px;">
+        <div class="prog-f" style="width:${pctFmt}%;background:${color};transition:width .8s cubic-bezier(.4,0,.2,1);"></div>
+      </div>
+      <div class="goal-pct">${pctFmt}% — <span class="goal-amount">${fmtCurrency(g.saved)} saved</span></div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <input type="number" placeholder="Add amount" min="0" step="0.01"
+          style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg);color:var(--text-1);font-size:12px;"
+          id="goalAdd_${g.id}">
+        <button onclick="addToGoal('${g.id}')"
+          style="padding:5px 10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">
+          + Add
+        </button>
+      </div>
+    </div>` + "`" + `;
+  }).join('');
+
+  const addCard = ` + "`" + `<div class="goal-card" id="addGoalCard"
+    style="display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px dashed var(--border);background:transparent;min-height:180px;"
+    onclick="openAddGoal()">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <div style="font-size:13px;color:var(--text-2);margin-top:8px;font-weight:500;">Add new goal</div>
+  </div>` + "`" + `;
+
+  grid.innerHTML = goalCards + addCard;
+  updateGoalsBadge(goals.length);
+}
+
+function updateGoalsBadge(n) {
+  const el = document.getElementById('goalsBadge');
+  if (el) el.textContent = n;
+}
+
+function openAddGoal() {
+  document.getElementById('goalModalTitle').textContent = 'Add goal';
+  document.getElementById('gIcon').value   = '🎯';
+  document.getElementById('gName').value   = '';
+  document.getElementById('gTarget').value = '';
+  document.getElementById('gSaved').value  = '0';
+  document.getElementById('gEditId').value = '';
+  document.getElementById('gNameErr').classList.remove('show');
+  document.getElementById('gTargetErr').classList.remove('show');
+  document.getElementById('goalModal').classList.add('open');
+}
+
+function openEditGoal(id) {
+  const goals = loadGoals();
+  const g = goals.find(x=>x.id===id);
+  if (!g) return;
+  document.getElementById('goalModalTitle').textContent = 'Edit goal';
+  document.getElementById('gIcon').value   = g.icon  || '🎯';
+  document.getElementById('gName').value   = g.name  || '';
+  document.getElementById('gTarget').value = g.target|| '';
+  document.getElementById('gSaved').value  = g.saved || '0';
+  document.getElementById('gEditId').value = id;
+  document.getElementById('gNameErr').classList.remove('show');
+  document.getElementById('gTargetErr').classList.remove('show');
+  document.getElementById('goalModal').classList.add('open');
+}
+
+function closeGoalModal() {
+  document.getElementById('goalModal').classList.remove('open');
+}
+
+function saveGoalModal() {
+  const name   = document.getElementById('gName').value.trim();
+  const target = parseFloat(document.getElementById('gTarget').value);
+  const saved  = parseFloat(document.getElementById('gSaved').value)||0;
+  const icon   = document.getElementById('gIcon').value.trim()||'🎯';
+  const editId = document.getElementById('gEditId').value;
+
+  let valid = true;
+  if (!name) { document.getElementById('gNameErr').classList.add('show'); valid=false; }
+  else document.getElementById('gNameErr').classList.remove('show');
+  if (!target || target <= 0) { document.getElementById('gTargetErr').classList.add('show'); valid=false; }
+  else document.getElementById('gTargetErr').classList.remove('show');
+  if (!valid) return;
+
+  const goals = loadGoals();
+  if (editId) {
+    const idx = goals.findIndex(x=>x.id===editId);
+    if (idx>=0) goals[idx] = {...goals[idx], icon, name, target, saved};
+  } else {
+    goals.push({id: crypto.randomUUID(), icon, name, target, saved});
+  }
+  saveGoals(goals);
+  closeGoalModal();
+  renderGoalsPage();
+  showToast(editId ? 'Goal updated!' : 'Goal added!');
+}
+
+function deleteGoal(id) {
+  if (!confirm('Delete this goal?')) return;
+  const goals = loadGoals().filter(g=>g.id!==id);
+  saveGoals(goals);
+  renderGoalsPage();
+  showToast('Goal deleted.');
+}
+
+function addToGoal(id) {
+  const input = document.getElementById('goalAdd_'+id);
+  const amt   = parseFloat(input?.value);
+  if (!amt || amt <= 0) { showToast('Enter a valid amount.'); return; }
+  const goals = loadGoals();
+  const idx   = goals.findIndex(g=>g.id===id);
+  if (idx < 0) return;
+  goals[idx].saved = (goals[idx].saved||0) + amt;
+  saveGoals(goals);
+  renderGoalsPage();
+  showToast('+' + fmtCurrency(amt) + ' added to goal!');
 }
 
 /* ══════════════════════════════════
@@ -1836,6 +2020,18 @@ document.addEventListener('DOMContentLoaded', () => {
     _activePeriod=p.dataset.period;
     getTx().then(txs=>renderDashStats(txs));
   }));
+
+  // Goal modal
+  document.getElementById('addGoalBtn').addEventListener('click', openAddGoal);
+  document.getElementById('goalModalClose').addEventListener('click', closeGoalModal);
+  document.getElementById('goalModalCancel').addEventListener('click', closeGoalModal);
+  document.getElementById('goalModalSave').addEventListener('click', saveGoalModal);
+  document.getElementById('goalModal').addEventListener('click', e=>{
+    if(e.target===document.getElementById('goalModal')) closeGoalModal();
+  });
+
+  // Init goals badge
+  updateGoalsBadge(loadGoals().length);
 
   // Add transaction buttons
   document.getElementById('addTxBtnDash').addEventListener('click', openModal);
