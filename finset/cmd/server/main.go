@@ -16,11 +16,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-//go:embed static/*
+//go:embed static/index.html
 var staticFiles embed.FS
 
 func main() {
-	// Load .env in development (ignored if file doesn't exist — Railway injects env vars directly)
 	_ = godotenv.Load()
 
 	port := os.Getenv("PORT")
@@ -28,23 +27,19 @@ func main() {
 		port = "8080"
 	}
 
-	// ── Database ──────────────────────────────────────────
 	pool, err := db.Connect()
 	if err != nil {
-		log.Fatalf("❌ DB connection failed: %v", err)
+		log.Fatalf("DB connection failed: %v", err)
 	}
 	defer pool.Close()
 
-	// Run safe migration (never drops or alters existing data)
 	if err := pool.Migrate(); err != nil {
-		log.Fatalf("❌ Migration failed: %v", err)
+		log.Fatalf("Migration failed: %v", err)
 	}
 
-	// ── Router ────────────────────────────────────────────
 	h := handlers.New(pool)
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -58,53 +53,39 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// ── API routes ────────────────────────────────────────
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/health", h.Health)
-		r.Get("/stats", h.GetStats)
-		r.Get("/monthly-flow", h.GetMonthlyFlow)
-		r.Get("/category-breakdown", h.GetCategoryBreakdown)
-
-		r.Get("/transactions", h.ListTransactions)
-		r.Post("/transactions", h.CreateTransaction)
-		r.Get("/transactions/{id}", h.GetTransaction)
+		r.Get("/health",               h.Health)
+		r.Get("/stats",                h.GetStats)
+		r.Get("/monthly-flow",         h.GetMonthlyFlow)
+		r.Get("/category-breakdown",   h.GetCategoryBreakdown)
+		r.Get("/transactions",         h.ListTransactions)
+		r.Post("/transactions",        h.CreateTransaction)
+		r.Get("/transactions/{id}",    h.GetTransaction)
 		r.Delete("/transactions/{id}", h.DeleteTransaction)
-
-		r.Post("/import", h.ImportTransactions)
+		r.Post("/import",              h.ImportTransactions)
 	})
 
-	// ── Static frontend (SPA) ─────────────────────────────
-	// Serve everything in the embedded static/ folder.
-	// Any route that isn't /api/* falls through to index.html.
-	staticFS, err := fs.Sub(staticFiles, "../static")
+	indexHTML, err := staticFiles.ReadFile("static/index.html")
 	if err != nil {
-		log.Fatalf("embed static: %v", err)
+		log.Fatalf("read embedded index.html: %v", err)
 	}
-	fileServer := http.FileServer(http.FS(staticFS))
+
+	staticFS, _ := fs.Sub(staticFiles, "static")
 
 	r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
-		// Try to serve the exact file first; fall back to index.html for SPA routing
-		_, statErr := fs.Stat(staticFS, req.URL.Path[1:])
-		if statErr != nil {
-			// Serve index.html for client-side navigation
-			f, err := staticFS.Open("index.html")
-			if err != nil {
-				http.Error(w, "index.html not found", http.StatusInternalServerError)
+		path := req.URL.Path[1:]
+		if path != "" {
+			if _, statErr := fs.Stat(staticFS, path); statErr == nil {
+				http.FileServer(http.FS(staticFS)).ServeHTTP(w, req)
 				return
 			}
-			defer f.Close()
-			stat, _ := f.Stat()
-			http.ServeContent(w, req, "index.html", stat.ModTime(), f.(interface {
-				Read([]byte) (int, error)
-				Seek(int64, int) (int64, error)
-			}))
-			return
 		}
-		fileServer.ServeHTTP(w, req)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(indexHTML)
 	})
 
-	// ── Start ─────────────────────────────────────────────
-	log.Printf("🚀 FinSet server listening on :%s", port)
+	log.Printf("FinSet listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("server: %v", err)
 	}

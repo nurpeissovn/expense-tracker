@@ -11,13 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Pool is the shared connection pool.
 type Pool struct {
 	*pgxpool.Pool
 }
 
-// Connect opens a connection pool to PostgreSQL using DATABASE_URL.
-// It retries up to 10 times (useful on Railway where DB may start after app).
 func Connect() (*Pool, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -38,50 +35,46 @@ func Connect() (*Pool, error) {
 	var pool *pgxpool.Pool
 	for attempt := 1; attempt <= 10; attempt++ {
 		pool, err = pgxpool.NewWithConfig(context.Background(), cfg)
-		if err == nil {
-			if err = pool.Ping(context.Background()); err == nil {
-				break
-			}
-			pool.Close()
+		if err != nil {
+			log.Printf("DB connect attempt %d/10 failed: %v — retrying in 3s", attempt, err)
+			time.Sleep(3 * time.Second)
+			continue
 		}
-		log.Printf("DB connect attempt %d/10 failed: %v — retrying in 3s…", attempt, err)
-		time.Sleep(3 * time.Second)
+		if err = pool.Ping(context.Background()); err != nil {
+			pool.Close()
+			log.Printf("DB ping attempt %d/10 failed: %v — retrying in 3s", attempt, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		break
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to database after 10 attempts: %w", err)
 	}
 
-	log.Println("✅ Connected to PostgreSQL")
+	log.Println("Connected to PostgreSQL")
 	return &Pool{pool}, nil
 }
-
-// ════════════════════════════════════════════════════════
-//  SAFE MIGRATION
-//  Uses CREATE TABLE IF NOT EXISTS and ALTER TABLE … ADD COLUMN IF NOT EXISTS
-//  so existing data is NEVER touched.
-// ════════════════════════════════════════════════════════
 
 func (p *Pool) Migrate() error {
 	ctx := context.Background()
 
-	// 1. Create the transactions table if it doesn't exist yet.
 	_, err := p.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS transactions (
-			id          TEXT        PRIMARY KEY,
-			type        TEXT        NOT NULL CHECK (type IN ('income','expense')),
+			id          TEXT          PRIMARY KEY,
+			type        TEXT          NOT NULL CHECK (type IN ('income','expense')),
 			amount      NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-			category    TEXT        NOT NULL DEFAULT '',
-			method      TEXT        NOT NULL DEFAULT 'Cash',
-			date        DATE        NOT NULL,
-			note        TEXT        NOT NULL DEFAULT '',
-			created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		);
+			category    TEXT          NOT NULL DEFAULT '',
+			method      TEXT          NOT NULL DEFAULT 'Cash',
+			date        DATE          NOT NULL,
+			note        TEXT          NOT NULL DEFAULT '',
+			created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+		)
 	`)
 	if err != nil {
 		return fmt.Errorf("create transactions table: %w", err)
 	}
 
-	// 2. Add any columns that may be missing in older schemas (safe, idempotent).
 	addCols := []string{
 		`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS category   TEXT        NOT NULL DEFAULT ''`,
 		`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS method     TEXT        NOT NULL DEFAULT 'Cash'`,
@@ -94,31 +87,17 @@ func (p *Pool) Migrate() error {
 		}
 	}
 
-	// 3. Index on date for fast range queries.
-	_, err = p.Exec(ctx, `
-		CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date DESC);
-	`)
-	if err != nil {
-		return fmt.Errorf("create index: %w", err)
+	if _, err = p.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date DESC)`); err != nil {
+		return fmt.Errorf("create index date: %w", err)
 	}
-
-	// 4. Index on type for fast income/expense filtering.
-	_, err = p.Exec(ctx, `
-		CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions (type);
-	`)
-	if err != nil {
+	if _, err = p.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions (type)`); err != nil {
 		return fmt.Errorf("create index type: %w", err)
 	}
 
-	log.Println("✅ Database migration complete (existing data preserved)")
+	log.Println("Database migration complete")
 	return nil
 }
 
-// ════════════════════════════════════════════════════════
-//  CRUD OPERATIONS
-// ════════════════════════════════════════════════════════
-
-// ListTransactions returns all transactions ordered by date desc.
 func (p *Pool) ListTransactions(ctx context.Context) ([]models.Transaction, error) {
 	rows, err := p.Query(ctx, `
 		SELECT id, type, amount, category, method, TO_CHAR(date,'YYYY-MM-DD'), note, created_at
@@ -139,12 +118,11 @@ func (p *Pool) ListTransactions(ctx context.Context) ([]models.Transaction, erro
 		txs = append(txs, t)
 	}
 	if txs == nil {
-		txs = []models.Transaction{} // always return array, never null
+		txs = []models.Transaction{}
 	}
 	return txs, rows.Err()
 }
 
-// GetTransaction returns a single transaction by ID.
 func (p *Pool) GetTransaction(ctx context.Context, id string) (*models.Transaction, error) {
 	var t models.Transaction
 	err := p.QueryRow(ctx, `
@@ -157,7 +135,6 @@ func (p *Pool) GetTransaction(ctx context.Context, id string) (*models.Transacti
 	return &t, nil
 }
 
-// CreateTransaction inserts a new transaction and returns it.
 func (p *Pool) CreateTransaction(ctx context.Context, id string, r models.CreateTransactionRequest) (*models.Transaction, error) {
 	var t models.Transaction
 	err := p.QueryRow(ctx, `
@@ -172,7 +149,6 @@ func (p *Pool) CreateTransaction(ctx context.Context, id string, r models.Create
 	return &t, nil
 }
 
-// DeleteTransaction removes a transaction. Returns false if not found.
 func (p *Pool) DeleteTransaction(ctx context.Context, id string) (bool, error) {
 	tag, err := p.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, id)
 	if err != nil {
@@ -181,14 +157,12 @@ func (p *Pool) DeleteTransaction(ctx context.Context, id string) (bool, error) {
 	return tag.RowsAffected() > 0, nil
 }
 
-// BulkInsert inserts multiple transactions in a single transaction (used for import).
-// Existing records with the same ID are skipped (ON CONFLICT DO NOTHING).
 func (p *Pool) BulkInsert(ctx context.Context, txs []models.Transaction) (int, error) {
 	tx, err := p.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx) //nolint
+	defer tx.Rollback(ctx)
 
 	var inserted int
 	for _, t := range txs {
@@ -205,7 +179,6 @@ func (p *Pool) BulkInsert(ctx context.Context, txs []models.Transaction) (int, e
 	return inserted, tx.Commit(ctx)
 }
 
-// Stats returns aggregate data for dashboard cards.
 type Stats struct {
 	TotalIncome  float64 `json:"total_income"`
 	TotalExpense float64 `json:"total_expense"`
@@ -226,9 +199,8 @@ func (p *Pool) GetStats(ctx context.Context) (Stats, error) {
 	return s, err
 }
 
-// MonthlyFlow returns per-month income/expense for the last N months.
 type MonthlyRow struct {
-	Month   string  `json:"month"`   // "Jan", "Feb", …
+	Month   string  `json:"month"`
 	Year    int     `json:"year"`
 	Income  float64 `json:"income"`
 	Expense float64 `json:"expense"`
@@ -238,7 +210,7 @@ func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, er
 	rows, err := p.Query(ctx, `
 		SELECT
 			TO_CHAR(DATE_TRUNC('month', date), 'Mon') AS month,
-			EXTRACT(YEAR FROM date)::INT             AS year,
+			EXTRACT(YEAR FROM date)::INT              AS year,
 			COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0) AS income,
 			COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0) AS expense
 		FROM transactions
@@ -265,7 +237,6 @@ func (p *Pool) GetMonthlyFlow(ctx context.Context, months int) ([]MonthlyRow, er
 	return result, rows.Err()
 }
 
-// CategoryBreakdown returns total expenses grouped by category.
 type CategoryRow struct {
 	Category string  `json:"category"`
 	Total    float64 `json:"total"`
